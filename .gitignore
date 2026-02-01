@@ -1,1 +1,12 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyc
+
+# SQLite DB (local dev)
+src/cmp.db
+
+# Virtual environments
+venv/
+.venv/
 docs/FYP Template Doc.pdf
