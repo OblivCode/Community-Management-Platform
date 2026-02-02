@@ -67,7 +67,8 @@ def dashboard():
     
     # Temporary variables
     minimum_budget_health = total_budget * 0.2
-    return render_template('dashboard.html', username = session["username"],  budget_year = budget_year, minimum_budget_health = minimum_budget_health, total_budget=total_budget, remaining_budget=remaining_budget, count_no_receipt=count_no_receipt, count_assets=count_assets, count_assets_damaged=count_assets_damaged, count_documents=count_documents, recent_transactions=recent_transactions)
+    currency = '£'
+    return render_template('dashboard.html', username = session["username"], currency=currency, budget_year = budget_year, minimum_budget_health = minimum_budget_health, total_budget=total_budget, remaining_budget=remaining_budget, count_no_receipt=count_no_receipt, count_assets=count_assets, count_assets_damaged=count_assets_damaged, count_documents=count_documents, recent_transactions=recent_transactions)
 
 
 def setup_database():

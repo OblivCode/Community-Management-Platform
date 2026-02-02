@@ -3,8 +3,100 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="h3">Dashboard</h2>
-    <div class="text-muted">Welcome, {{ username }}</div>
+    <div class="text-muted">{{ username }}</div>
 </div>
 
+<div class="row g-4 mb-4">
+    
+    <div class="col-md-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-primary"><i class="bi bi-wallet2"></i> Budget Overview</h5>
+                <span class="badge bg-secondary">{{ budget_year }}</span>
+            </div>
+            <div class="card-body">
+                <div class="row text-center mb-3">
+                    <div class="col-6 border-end">
+                        <small class="text-muted">Total Budget</small>
+                        <h3 class="fw-bold">{{currency}}{{ total_budget }}</h3>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted">Remaining Budget</small>
+                        <h3 class="fw-bold text-{{ 'success' if (remaining_budget >  minimum_budget_health) else 'danger' }}">
+                            {{currency}}{{ remaining_budget }}
+                        </h3>
+                    </div>
+                </div>
 
+                {% set percent = (remaining_budget / total_budget * 100) %}
+                <div class="progress mb-3" style="height: 10px;">
+                    <div class="progress-bar bg-{{ 'success' if percent > 20 else 'danger' }}" 
+                         role="progressbar" style="width: {{ percent }}%"></div>
+                </div>
+
+                {% if count_no_receipt > 0 %}
+                <div class="alert alert-warning d-flex align-items-center py-2 mb-0" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <div>
+                        <strong>{{ count_no_receipt }} Transactions</strong> missing receipts.
+                        <a href="/expenses" class="alert-link">Review</a>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-success small"><i class="bi bi-check-circle-fill"></i> All receipts up to date.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0 text-success"><i class="bi bi-box-seam"></i> Inventory Overview (Assets)</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="p-3 border rounded bg-light text-center">
+                            <h2 class="mb-0">{{ count_assets }}</h2>
+                            <small class="text-muted">Assets in Inventory</small>
+                        </div>
+                    </div>
+                    
+                    <div class="col-6">
+                        <div class="p-3 border rounded {{ 'bg-danger text-white' if count_assets_damaged > 0 else 'bg-light' }} text-center">
+                            <h2 class="mb-0">{{ count_assets_damaged }}</h2>
+                            <small class="{{ 'text-white-50' }}">Needs Repair/Replacement</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Recent Action Log</h5>
+    </div>
+    <div class="list-group list-group-flush">
+        {% for tranc in recent_transactions %}
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+                <i class="bi bi-arrow-right-circle text-primary me-2"></i>
+                <strong>{{ tranc.note }}</strong> 
+                <span class="text-muted small">({{ tranc.category }})</span>
+                <div class="small text-muted ms-4">
+                    by {{ tranc.user.username }} on {{ tranc.timestamp.strftime('%d-%m-%Y') }}
+                </div>
+            </div>
+            <span class="fw-bold text-danger">-{{currency}}{{ "%.2f"|format(tranccost) }}</span>
+        </div>
+        {% else %}
+        <div class="list-group-item text-center text-muted py-4">
+            No recent activity recorded.
+        </div>
+        {% endfor %}
+    </div>
+</div>
 {% endblock %}
