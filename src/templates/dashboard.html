@@ -1,12 +1,10 @@
-<!DOCTYPE html>
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
-</head>
-<body>
-    <button onclick="location.href='/signout'">Sign out</button>
-    <h1>Welcome to the Dashboard</h1>
-    <p>This is your main dashboard where you can access various features.</p>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="h3">Dashboard</h2>
+    <div class="text-muted">Welcome, {{ username }}</div>
+</div>
+
+
+{% endblock %}

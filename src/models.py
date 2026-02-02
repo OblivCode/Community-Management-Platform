@@ -47,3 +47,8 @@ class Event(db.Model):
     description = db.Column(db.String(300), nullable=True)
     date = db.Column(db.DateTime, nullable=False)
     document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=True)
+
+from enum import Enum
+class AssetStatus(Enum):
+    FINE = "Fine"
+    DAMAGED = "Damaged"

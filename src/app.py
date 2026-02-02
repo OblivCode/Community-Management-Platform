@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, session, redirect, flash
 from auth import validateUser
-from models import db, User, Budget
+from models import AssetStatus, Document, Transaction, db, User, Budget, Asset
 import os
 
 app = Flask(__name__)
@@ -40,8 +40,8 @@ def login():
     elif request.method == "GET":
         return render_template('login.html')
     
-@app.route('/signout')
-def signout():
+@app.route('/logout')
+def logout():
     session.clear()
     return redirect('/login')
 
@@ -49,7 +49,25 @@ def signout():
 def dashboard():
     if not session.get("username"):
         return redirect("/login")
-    return render_template('dashboard.html')
+    # 1. Build Dashboard
+    # A. Budget/Expense Overview
+    budget = Budget.query.first()
+    total_budget = budget.total_fund
+    remaining_budget = budget.remaining_fund 
+    budget_year = budget.year
+    count_no_receipt = Transaction.query.filter_by(budget_id=budget.id, document_id=None).count()
+    # B. Asset Overview
+    count_assets = Asset.query.count()
+    count_assets_damaged = Asset.query.filter(Asset.status == AssetStatus.DAMAGED.value).count()
+    # C. Document Overview
+    count_documents = Document.query.count()
+    # D. Action log
+    # Retrieve last 3 transactions
+    recent_transactions = Transaction.query.order_by(Transaction.timestamp.desc()).filter_by(budget_id=budget.id).limit(3).all()
+    
+    # Temporary variables
+    minimum_budget_health = total_budget * 0.2
+    return render_template('dashboard.html', username = session["username"],  budget_year = budget_year, minimum_budget_health = minimum_budget_health, total_budget=total_budget, remaining_budget=remaining_budget, count_no_receipt=count_no_receipt, count_assets=count_assets, count_assets_damaged=count_assets_damaged, count_documents=count_documents, recent_transactions=recent_transactions)
 
 
 def setup_database():
