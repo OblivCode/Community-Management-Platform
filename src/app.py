@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, redirect, flash
+from flask import Flask, jsonify, render_template, request, session, redirect, flash
 from auth import validateUser
 from models import AssetStatus, Document, Transaction, db, User, Budget, Asset
 import os
@@ -77,24 +77,34 @@ def dashboard():
     return render_template('dashboard.html', username = session["username"],  currency=currency, budget_year = budget_year, minimum_budget_health = minimum_budget_health, total_budget=total_budget, remaining_budget=remaining_budget, count_no_receipt=count_no_receipt, count_assets=count_assets, count_assets_damaged=count_assets_damaged, count_documents=count_documents, unlinked_documents=unlinked_documents, recent_transactions=recent_transactions)
 
 # Asset Management Route
+
 @app.route('/assets', methods=['GET'])
-@app.route('/assets/<operation>', methods=['POST'])
-def assets(operation=None):
+@app.route('/assets/<id>', methods=['GET'])
+def assets_get(id=None):
     if not session.get("username"):
         return redirect("/login")
     
-    if request.method == "GET":
-        return assets_get()
-    elif request.method == "POST":
-        return assets_post(operation)
+    if id:
+        # Get specific asset
+        asset = Asset.query.get(id)
+        return jsonify({
+            "id": asset.id,
+            "name": asset.name,
+            "location": asset.location,
+            "status": asset.status,
+            "count": asset.count
+        })
+    else:
+        # Get all assets
+        assets = Asset.query.all()
+        asset_status_options = [status.value.removeprefix("AssetStatus.") for status in AssetStatus]
+        return render_template('assets.html', assets=assets, asset_status_options=asset_status_options)
 
-def assets_get():
-    # Get all assets
-    assets = Asset.query.all()
-    asset_status_options = [status.value.removeprefix("AssetStatus.") for status in AssetStatus]
-    return render_template('assets.html', assets=assets, asset_status_options=asset_status_options)
-
-def assets_post(operation):
+@app.route('/assets/<operation>', methods=['POST'])
+def assets_post(operation=None):
+    if not session.get("username"):
+        return redirect("/login")
+    
      # "add", "update", "delete"
     if operation == "add":
         name = request.form.get("name")
@@ -111,23 +121,24 @@ def assets_post(operation):
             db.session.add(new_asset)
             db.session.commit()
     elif operation == "update":
-        asset_id = request.form.get("asset_id")
-        asset = Asset.query.get(asset_id)
+        id = request.form.get("id")
+        asset = Asset.query.get(id)
         if asset:
             asset.name = request.form.get("name")
             asset.location = request.form.get("location")
             asset.status = request.form.get("status")
+            asset.count = request.form.get("count")
             db.session.commit()
         else:
-            flash("Could not update asset with ID {asset_id}: Asset not found", "error")
+            flash(f"Could not update asset with ID {id}: Asset not found", "error")
     elif operation == "delete":
-        asset_id = request.form.get("asset_id")
-        asset = Asset.query.get(asset_id)
+        id = request.form.get("id")
+        asset = Asset.query.get(id)
         if asset:
             db.session.delete(asset)
             db.session.commit()
         else:
-            flash("Could not delete asset with ID {asset_id}: Asset not found", "error")
+            flash(f"Could not delete asset with ID {id}: Asset not found", "error")
     else:
         flash("Invalid operation.", "error")
     return redirect("/assets")
