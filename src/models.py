@@ -51,7 +51,14 @@ class Event(db.Model):
     date = db.Column(db.DateTime, nullable=False)
     document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=True)
 
+class ActionLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=True)
+    action = db.Column(db.String(200), nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False)
+
 from enum import Enum
 class AssetStatus(Enum):
     FINE = "Fine"
     DAMAGED = "Damaged"
+    LOST = "Lost"

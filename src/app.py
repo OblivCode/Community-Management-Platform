@@ -171,4 +171,5 @@ def setup_database():
 
 
 if __name__ == '__main__':
+    import audit # Register audit listeners
     app.run()
