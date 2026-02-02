@@ -61,14 +61,14 @@ def dashboard():
     count_assets_damaged = Asset.query.filter(Asset.status == AssetStatus.DAMAGED.value).count()
     # C. Document Overview
     count_documents = Document.query.count()
+    unlinked_documents = Document.query.filter_by(parent_id=None).count()
     # D. Action log
     # Retrieve last 3 transactions
     recent_transactions = Transaction.query.order_by(Transaction.timestamp.desc()).filter_by(budget_id=budget.id).limit(3).all()
-    
     # Temporary variables
     minimum_budget_health = total_budget * 0.2
     currency = '£'
-    return render_template('dashboard.html', username = session["username"], currency=currency, budget_year = budget_year, minimum_budget_health = minimum_budget_health, total_budget=total_budget, remaining_budget=remaining_budget, count_no_receipt=count_no_receipt, count_assets=count_assets, count_assets_damaged=count_assets_damaged, count_documents=count_documents, recent_transactions=recent_transactions)
+    return render_template('dashboard.html', username = session["username"],  currency=currency, budget_year = budget_year, minimum_budget_health = minimum_budget_health, total_budget=total_budget, remaining_budget=remaining_budget, count_no_receipt=count_no_receipt, count_assets=count_assets, count_assets_damaged=count_assets_damaged, count_documents=count_documents, unlinked_documents=unlinked_documents, recent_transactions=recent_transactions)
 
 
 def setup_database():

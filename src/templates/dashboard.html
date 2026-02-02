@@ -6,9 +6,9 @@
     <div class="text-muted">{{ username }}</div>
 </div>
 
+<!-- Budget Overview -->
 <div class="row g-4 mb-4">
-    
-    <div class="col-md-6">
+    <div class="col-md-4">
         <div class="card h-100 shadow-sm">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 text-primary"><i class="bi bi-wallet2"></i> Budget Overview</h5>
@@ -48,8 +48,8 @@
             </div>
         </div>
     </div>
-
-    <div class="col-md-6">
+<!-- Asset Overview -->
+    <div class="col-md-4">
         <div class="card h-100 shadow-sm">
             <div class="card-header bg-white">
                 <h5 class="mb-0 text-success"><i class="bi bi-box-seam"></i> Inventory Overview (Assets)</h5>
@@ -73,11 +73,38 @@
             </div>
         </div>
     </div>
+
+<!-- Document Overview -->
+    <div class="col-md-4">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0 text-success"><i class="bi bi-box-seam"></i> Documents Overview</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="p-3 border rounded bg-light text-center">
+                            <h2 class="mb-0">{{ count_documents }}</h2>
+                            <small class="text-muted">Documents</small>
+                        </div>
+                    </div>
+                    
+                    <div class="col-6">
+                        <div class="p-3 border rounded {{ 'bg-danger text-white' if unlinked_documents > 0 else 'bg-light' }} text-center">
+                            <h2 class="mb-0">{{ unlinked_documents }}</h2>
+                            <small class="{{ 'text-white-50' }}">Not Linked to Records</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
+<!-- Recent Transactions Log -->
 <div class="card shadow-sm">
     <div class="card-header bg-light">
-        <h5 class="mb-0">Recent Action Log</h5>
+        <h5 class="mb-0">Recent Transactions</h5>
     </div>
     <div class="list-group list-group-flush">
         {% for tranc in recent_transactions %}
@@ -94,9 +121,20 @@
         </div>
         {% else %}
         <div class="list-group-item text-center text-muted py-4">
-            No recent activity recorded.
+            No recent transactionsrecorded.
         </div>
         {% endfor %}
     </div>
 </div>
+
+<!-- Recent Actions Log (Placeholder)-->
+<div class="card shadow-sm mt-4">
+    <div class="card-header bg-light">
+        <h5 class="mb-0">Recent Actions</h5>
+    </div>
+    <div class="list-group list-group-flush">
+        <div class="list-group-item text-center text-muted py-4">
+            No recent actions recorded.
+        </div>
+    </div>
 {% endblock %}

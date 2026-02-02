@@ -41,6 +41,8 @@ class Document(db.Model):
     filename = db.Column(db.String(200), nullable=False)
     upload_date = db.Column(db.DateTime, nullable=False)
 
+    parent_id = db.Column(db.String(100), nullable=True)  # e.g., could be linked to Transaction or Event
+
 class Event(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
