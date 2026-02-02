@@ -45,6 +45,7 @@ def logout():
     session.clear()
     return redirect('/login')
 
+# Dashboard Route
 @app.route('/dashboard')
 def dashboard():
     if not session.get("username"):
@@ -65,11 +66,71 @@ def dashboard():
     # D. Action log
     # Retrieve last 3 transactions
     recent_transactions = Transaction.query.order_by(Transaction.timestamp.desc()).filter_by(budget_id=budget.id).limit(3).all()
+    
+    # TODO: Handle flashing messages for various actions across the app
+    # TODO: Develop recent activity log for actions like asset updates, document uploads, etc.
     # Temporary variables
+    # TODO: implement settings and map currency symbol and budget health threshold
     minimum_budget_health = total_budget * 0.2
     currency = '£'
+    
     return render_template('dashboard.html', username = session["username"],  currency=currency, budget_year = budget_year, minimum_budget_health = minimum_budget_health, total_budget=total_budget, remaining_budget=remaining_budget, count_no_receipt=count_no_receipt, count_assets=count_assets, count_assets_damaged=count_assets_damaged, count_documents=count_documents, unlinked_documents=unlinked_documents, recent_transactions=recent_transactions)
 
+# Asset Management Route
+@app.route('/assets', methods=['GET'])
+@app.route('/assets/<operation>', methods=['POST'])
+def assets(operation=None):
+    if not session.get("username"):
+        return redirect("/login")
+    
+    if request.method == "GET":
+        return assets_get()
+    elif request.method == "POST":
+        return assets_post(operation)
+
+def assets_get():
+    # Get all assets
+    assets = Asset.query.all()
+    asset_status_options = [status.value.removeprefix("AssetStatus.") for status in AssetStatus]
+    return render_template('assets.html', assets=assets, asset_status_options=asset_status_options)
+
+def assets_post(operation):
+     # "add", "update", "delete"
+    if operation == "add":
+        name = request.form.get("name")
+        location = request.form.get("location")
+        status = request.form.get("status")
+        count = request.form.get("count")
+
+        # Ensure name is unique
+        existing_asset = Asset.query.filter_by(name=name).first()
+        if existing_asset:
+            flash("Asset with this name already exists.", "error")
+        else:
+            new_asset = Asset(name=name, location=location, status=status, count = count)
+            db.session.add(new_asset)
+            db.session.commit()
+    elif operation == "update":
+        asset_id = request.form.get("asset_id")
+        asset = Asset.query.get(asset_id)
+        if asset:
+            asset.name = request.form.get("name")
+            asset.location = request.form.get("location")
+            asset.status = request.form.get("status")
+            db.session.commit()
+        else:
+            flash("Could not update asset with ID {asset_id}: Asset not found", "error")
+    elif operation == "delete":
+        asset_id = request.form.get("asset_id")
+        asset = Asset.query.get(asset_id)
+        if asset:
+            db.session.delete(asset)
+            db.session.commit()
+        else:
+            flash("Could not delete asset with ID {asset_id}: Asset not found", "error")
+    else:
+        flash("Invalid operation.", "error")
+    return redirect("/assets")
 
 def setup_database():
     with app.app_context():

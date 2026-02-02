@@ -23,6 +23,7 @@ class Asset(db.Model):
     name = db.Column(db.String(100), nullable=False)
     location = db.Column(db.String(100), default='Storage')
     status = db.Column(db.String(100), default='Fine')
+    count = db.Column(db.Integer, nullable=False)
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
