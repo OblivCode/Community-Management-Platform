@@ -125,6 +125,12 @@ def assets_post(operation=None):
         asset = Asset.query.get(id)
         if asset:
             asset.name = request.form.get("name")
+            # Ensure name is unique
+            existing_asset = Asset.query.filter_by(name=asset.name).first()
+            if existing_asset and existing_asset.id != asset.id:
+                flash("Asset with this name already exists.", "error")
+                return redirect("/assets")
+                
             asset.location = request.form.get("location")
             asset.status = request.form.get("status")
             asset.count = request.form.get("count")
