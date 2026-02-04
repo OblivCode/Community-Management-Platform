@@ -1,3 +1,4 @@
+import datetime
 from flask import Flask, jsonify, render_template, request, session, redirect, flash
 from auth import validateUser
 from models import AssetStatus, Document, Transaction, db, User, Budget, Asset
@@ -14,6 +15,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'cm
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
+
+
+# TODO: Develop recent activity log for actions like asset updates, document uploads, etc.
+# Temporary variables
+# TODO: implement settings and map currency symbol and budget health threshold
+budget_health_threshold = 0.2 # 20%
+currency = '£'
 
 
 @app.route('/', methods=['GET', 'POST'])
@@ -38,6 +46,8 @@ def login():
             flash("Invalid username or password", "error")
             return render_template('login.html')
     elif request.method == "GET":
+        if session.get("username"):
+            return redirect("/dashboard")
         return render_template('login.html')
     
 @app.route('/logout')
@@ -67,13 +77,8 @@ def dashboard():
     # Retrieve last 3 transactions
     recent_transactions = Transaction.query.order_by(Transaction.timestamp.desc()).filter_by(budget_id=budget.id).limit(3).all()
     
-    # TODO: Handle flashing messages for various actions across the app
-    # TODO: Develop recent activity log for actions like asset updates, document uploads, etc.
-    # Temporary variables
-    # TODO: implement settings and map currency symbol and budget health threshold
-    minimum_budget_health = total_budget * 0.2
-    currency = '£'
     
+    minimum_budget_health = budget_health_threshold * 100 
     return render_template('dashboard.html', username = session["username"],  currency=currency, budget_year = budget_year, minimum_budget_health = minimum_budget_health, total_budget=total_budget, remaining_budget=remaining_budget, count_no_receipt=count_no_receipt, count_assets=count_assets, count_assets_damaged=count_assets_damaged, count_documents=count_documents, unlinked_documents=unlinked_documents, recent_transactions=recent_transactions)
 
 # Asset Management Route
@@ -148,6 +153,34 @@ def assets_post(operation=None):
     else:
         flash("Invalid operation.", "error")
     return redirect("/assets")
+
+# Expense Management Route
+@app.route('/expenses', methods=['GET'])
+@app.route('/expenses/<year>', methods=['GET'])
+def expenses_get(year=None):
+    if not session.get("username"):
+        return redirect("/login")
+    
+    if not year:
+        year = str(datetime.datetime.now().year) # Default to current year
+    
+    # Get budget for the year
+    budget = Budget.query.filter_by(year=year).first()
+    transactions = []
+    count_no_receipt = 0
+    if budget:
+        # Get all transactions for the budget
+        transactions = Transaction.query.filter_by(budget_id=budget.id).all()
+        # Get transactions without document/receipt
+        count_no_receipt = Transaction.query.filter_by(budget_id=budget.id, document_id=None).count()
+    else:
+        budget = Budget(year=year, total_fund=0.0, remaining_fund=0.0)
+        flash(f"No budget found for year {year}. Showing empty budget.", "info")
+    
+    return render_template('expenses.html', currency=currency,transactions=transactions, budget=budget, count_no_receipt=count_no_receipt, username=session["username"])
+
+    
+    
 
 def setup_database():
     with app.app_context():
