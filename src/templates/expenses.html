@@ -104,8 +104,9 @@
             </div>
             <form action="/expenses" method="POST">
                 <div class="modal-body">
+                    <input type="hidden" name="budget_id" value="{{ budget.id }}">
                     <div class="mb-3">
-                        <label class="form-label">Description (Name)</label>
+                        <label class="form-label">Note</label>
                         <input type="text" class="form-control" name="note" placeholder="e.g. Match Balls" required>
                     </div>
                     

@@ -23,13 +23,23 @@ db.init_app(app)
 budget_health_threshold = 0.2 # 20%
 currency = '£'
 
+def check_authentication():
+    if not session.get("username"):
+        return False
+
+    user = User.query.filter_by(username=session["username"]).first()
+    if not user or user.password != session.get("password"):
+        return False
+    
+    return True
+
 
 @app.route('/', methods=['GET', 'POST'])
 @app.route('/login', methods=['GET', 'POST'])
 def login():  
     if request.method == "POST":
         # Check if session exists, else get from form
-        if session.get("username"):
+        if check_authentication():
             username = session["username"]
             password = session["password"]
         else:
@@ -46,7 +56,7 @@ def login():
             flash("Invalid username or password", "error")
             return render_template('login.html')
     elif request.method == "GET":
-        if session.get("username"):
+        if check_authentication():
             return redirect("/dashboard")
         return render_template('login.html')
     
@@ -58,7 +68,7 @@ def logout():
 # Dashboard Route
 @app.route('/dashboard')
 def dashboard():
-    if not session.get("username"):
+    if not check_authentication():
         return redirect("/login")
     # 1. Build Dashboard
     # A. Budget/Expense Overview
@@ -86,7 +96,7 @@ def dashboard():
 @app.route('/assets', methods=['GET'])
 @app.route('/assets/<id>', methods=['GET'])
 def assets_get(id=None):
-    if not session.get("username"):
+    if not check_authentication():
         return redirect("/login")
     
     if id:
@@ -107,7 +117,7 @@ def assets_get(id=None):
 
 @app.route('/assets/<operation>', methods=['POST'])
 def assets_post(operation=None):
-    if not session.get("username"):
+    if not check_authentication():
         return redirect("/login")
     
      # "add", "update", "delete"
@@ -158,7 +168,7 @@ def assets_post(operation=None):
 @app.route('/expenses', methods=['GET'])
 @app.route('/expenses/<year>', methods=['GET'])
 def expenses_get(year=None):
-    if not session.get("username"):
+    if not check_authentication():
         return redirect("/login")
     
     if not year:
@@ -179,6 +189,25 @@ def expenses_get(year=None):
     
     return render_template('expenses.html', currency=currency,transactions=transactions, budget=budget, count_no_receipt=count_no_receipt, username=session["username"])
 
+@app.route('/expenses', methods=['POST'])
+def expenses_post():
+    if not check_authentication():
+        return redirect("/login")
+
+    # Get form data
+    timestamp = datetime.datetime.now()
+    note = request.form.get("note")
+    category = request.form.get("category")
+    cost = float(request.form.get("cost"))
+    budget_id = int(request.form.get("budget_id"))
+    user = User.query.filter_by(username=session["username"]).first()
+
+    # Create new transaction
+    new_transaction = Transaction(cost=cost, note=note, timestamp=timestamp, category=category, author=user.id, budget_id=budget_id)
+    
+    db.session.add(new_transaction)
+    db.session.commit()
+    return redirect("/expenses")
     
     
 
