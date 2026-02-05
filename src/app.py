@@ -72,7 +72,8 @@ def dashboard():
         return redirect("/login")
     # 1. Build Dashboard
     # A. Budget/Expense Overview
-    budget = Budget.query.first()
+    year = session.get("budget_year") or str(datetime.datetime.now().year)
+    budget = Budget.query.filter_by(year=year).first()
     total_budget = budget.total_fund
     remaining_budget = budget.remaining_fund 
     budget_year = budget.year
@@ -166,13 +167,12 @@ def assets_post(operation=None):
 
 # Expense Management Route
 @app.route('/expenses', methods=['GET'])
-@app.route('/expenses/<year>', methods=['GET'])
 def expenses_get(year=None):
     if not check_authentication():
         return redirect("/login")
     
-    if not year:
-        year = str(datetime.datetime.now().year) # Default to current year
+    year = session["budget_year"] or str(datetime.datetime.now().year)
+        
     
     # Get budget for the year
     budget = Budget.query.filter_by(year=year).first()
@@ -223,6 +223,15 @@ def expenses_post():
     
     db.session.add(new_transaction)
     db.session.commit()
+    return redirect("/expenses")
+
+@app.route('/expenses/<year>', methods=['GET'])
+def expenses_post_year(year):
+    if not check_authentication():
+        return redirect("/login")
+    
+    # Update session budget year
+    session["budget_year"] = year
     return redirect("/expenses")
 
 @app.route('/expenses/delete/<int:id>', methods=['POST'])

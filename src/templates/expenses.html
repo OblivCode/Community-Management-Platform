@@ -7,13 +7,6 @@
     <div class="col-md-4">
         <h2 class="h3 mb-0">Expense Management</h2>
     </div>
-    <div class="col-md-4">
-        <select id="yearSelect" class="form-select w-auto mx-md-auto" onchange="location = '/expenses/' + this.value;">
-            {% for y in range(1900, 2027)|reverse %}
-                <option value="{{ y }}" {% if budget.year == y %}selected{% endif %}>{{ y }}</option>
-            {% endfor %}
-        </select>
-    </div>
     <div class="col-md-4 text-end">
         <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addTransModal">
             <i class="bi bi-plus-lg"></i> Add Transaction

@@ -69,6 +69,16 @@
             <a class="nav-link" href="/logout">
                 <i class="bi bi-box-arrow-left"></i> Sign out
             </a>
+
+            <!-- Year selection -->
+            <div class="mt-4">
+                <label for="yearSelect" class="form-label text-white">Select Year</label>
+                <select id="yearSelect" class="form-select" onchange="location = '/expenses/' + this.value;">
+                    {% for y in range(1900, 2027)|reverse %}
+                        <option value="{{ y }}">{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
         </div>
 
        <div class="col-md-9 col-lg-10 p-5">
