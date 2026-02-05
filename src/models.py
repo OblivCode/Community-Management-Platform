@@ -1,4 +1,9 @@
 from flask_sqlalchemy import SQLAlchemy
+from enum import Enum
+class AssetStatus(Enum):
+    FINE = "Fine"
+    DAMAGED = "Damaged"
+    LOST = "Lost"
 
 db = SQLAlchemy()
 
@@ -22,7 +27,7 @@ class Asset(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     location = db.Column(db.String(100), default='Storage')
-    status = db.Column(db.String(100), default='Fine')
+    status = db.Column(db.Enum(AssetStatus), default=AssetStatus.FINE, nullable=False)
     count = db.Column(db.Integer, nullable=False)
 
 class Transaction(db.Model):
@@ -41,7 +46,8 @@ class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     note = db.Column(db.String(100), nullable=False)
     filename = db.Column(db.String(200), nullable=False)
-    upload_date = db.Column(db.DateTime, nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     parent_id = db.Column(db.String(100), nullable=True)  # e.g., could be linked to Transaction or Event
 
@@ -58,8 +64,3 @@ class ActionLog(db.Model):
     action = db.Column(db.String(200), nullable=False)
     timestamp = db.Column(db.DateTime, nullable=False)
 
-from enum import Enum
-class AssetStatus(Enum):
-    FINE = "Fine"
-    DAMAGED = "Damaged"
-    LOST = "Lost"

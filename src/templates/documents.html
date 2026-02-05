@@ -25,7 +25,7 @@
             <thead class="table-dark">
                 <tr>
                     <th scope="col">ID</th>
-                    <th scope="col">Filename</th>
+                    <th scope="col">Document Note</th>
                     <th scope="col">Uploaded At</th>
                     <th scope="col">Uploaded by</th>
                     <th scope="col" class="text-end">Actions</th>
@@ -35,8 +35,10 @@
                 {% for doc in documents %}
                 <tr>
                     <td>{{ doc.id }}</td>
-                    <td>{{ doc.filename }}</td>
-                    <td>{{ doc.upload_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        {{ doc.note }}
+                    </td>
+                    <td>{{ doc.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
                     <td>{{ doc.uploaded_by }}</td>
                     <td class="text-end">
                         <a href="/documents/{{ doc.id }}" class="btn btn-sm btn-outline-primary me-2">
@@ -51,7 +53,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="5" class="text-center text-muted">No documents found.</td>
+                    <td colspan="6" class="text-center text-muted">No documents found.</td>
                 </tr>
                 {% endfor %}
             </tbody>

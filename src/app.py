@@ -16,6 +16,14 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
 
+@app.context_processor
+def inject_budget_year():
+    if "budget_year" not in session:
+        session["budget_year"] = str(datetime.datetime.now().year)
+    budget_year = session["budget_year"]
+    available_years = [str(year) for year in range(datetime.datetime.now().year + 1, 2020, -1)]
+    return dict(budget_year=budget_year, available_years=available_years)
+
 
 # TODO: Develop recent activity log for actions like asset updates, document uploads, etc.
 # Temporary variables
@@ -51,6 +59,7 @@ def login():
         if valid:
             session["username"] = username
             session["password"] = password
+            session["budget_year"] = str(datetime.datetime.now().year)
             return redirect("/dashboard")
         else:
             flash("Invalid username or password", "error")
@@ -70,27 +79,56 @@ def logout():
 def dashboard():
     if not check_authentication():
         return redirect("/login")
+
+    budget_year = session.get("budget_year", str(datetime.datetime.now().year))
+    
     # 1. Build Dashboard
     # A. Budget/Expense Overview
-    year = session.get("budget_year") or str(datetime.datetime.now().year)
-    budget = Budget.query.filter_by(year=year).first()
+    budget = Budget.query.filter_by(year=budget_year).first()
+    if not budget:
+        budget = Budget(year=budget_year, total_fund=0, remaining_fund=0)
+        flash(f"No budget found for year {budget_year}. A new budget can be created in the settings.", "info")
+
     total_budget = budget.total_fund
-    remaining_budget = budget.remaining_fund 
-    budget_year = budget.year
-    count_no_receipt = Transaction.query.filter_by(budget_id=budget.id, document_id=None).count()
+    remaining_budget = budget.remaining_fund
+    count_no_receipt = Transaction.query.filter_by(budget_id=budget.id, document_id=None).count() if budget.id else 0
+    
     # B. Asset Overview
     count_assets = Asset.query.count()
-    count_assets_damaged = Asset.query.filter(Asset.status == AssetStatus.DAMAGED.value).count()
+    count_assets_damaged = Asset.query.filter(Asset.status == AssetStatus.DAMAGED).count()
+
     # C. Document Overview
     count_documents = Document.query.count()
     unlinked_documents = Document.query.filter_by(parent_id=None).count()
+    
     # D. Action log
-    # Retrieve last 3 transactions
-    recent_transactions = Transaction.query.order_by(Transaction.timestamp.desc()).filter_by(budget_id=budget.id).limit(3).all()
+    recent_transactions = Transaction.query.order_by(Transaction.timestamp.desc()).filter_by(budget_id=budget.id).limit(3).all() if budget.id else []
     
+    minimum_budget_health = budget_health_threshold * 100
     
-    minimum_budget_health = budget_health_threshold * 100 
-    return render_template('dashboard.html', username = session["username"],  currency=currency, budget_year = budget_year, minimum_budget_health = minimum_budget_health, total_budget=total_budget, remaining_budget=remaining_budget, count_no_receipt=count_no_receipt, count_assets=count_assets, count_assets_damaged=count_assets_damaged, count_documents=count_documents, unlinked_documents=unlinked_documents, recent_transactions=recent_transactions)
+    return render_template('dashboard.html', 
+                           username=session["username"],
+                           currency=currency,
+                           minimum_budget_health=minimum_budget_health,
+                           total_budget=total_budget,
+                           remaining_budget=remaining_budget,
+                           count_no_receipt=count_no_receipt,
+                           count_assets=count_assets,
+                           count_assets_damaged=count_assets_damaged,
+                           count_documents=count_documents,
+                           unlinked_documents=unlinked_documents,
+                            recent_transactions=recent_transactions)
+
+@app.route('/set_year', methods=['POST'])
+def set_year():
+    if not check_authentication():
+        return redirect("/login")
+    
+    year = request.form.get("year")
+    if year:
+        session["budget_year"] = year
+        
+    return redirect(request.referrer or '/dashboard')
 
 # Asset Management Route
 
@@ -113,7 +151,7 @@ def assets_get(id=None):
     else:
         # Get all assets
         assets = Asset.query.all()
-        asset_status_options = [status.value.removeprefix("AssetStatus.") for status in AssetStatus]
+        asset_status_options = [status.value for status in AssetStatus]
         return render_template('assets.html', assets=assets, asset_status_options=asset_status_options)
 
 @app.route('/assets/<operation>', methods=['POST'])
@@ -125,7 +163,8 @@ def assets_post(operation=None):
     if operation == "add":
         name = request.form.get("name")
         location = request.form.get("location")
-        status = request.form.get("status")
+        status_str = request.form.get("status")
+        status = AssetStatus(status_str) if status_str else AssetStatus.FINE
         count = request.form.get("count")
 
         # Ensure name is unique
@@ -148,7 +187,8 @@ def assets_post(operation=None):
                 return redirect("/assets")
                 
             asset.location = request.form.get("location")
-            asset.status = request.form.get("status")
+            status_str = request.form.get("status")
+            asset.status = AssetStatus(status_str) if status_str else AssetStatus.FINE
             asset.count = request.form.get("count")
             db.session.commit()
         else:
@@ -257,6 +297,19 @@ def documents_get():
     documents = Document.query.all()
     return render_template('documents.html', documents=documents, username=session["username"])
 
+@app.route('/documents/<int:id>', methods=['GET'])
+def documents_get_view(id):
+    if not check_authentication():
+        return redirect("/login")
+
+    document = Document.query.get(id)
+    if document:
+        return render_template('view_document.html', document=document, username=session["username"])
+    else:
+        flash("Document not found.", "error")
+        return redirect("/documents")
+
+
 @app.route('/documents', methods=['POST'])
 def documents_post():
     if not check_authentication():
@@ -266,12 +319,13 @@ def documents_post():
     file = request.files.get("document_file")
     note = request.form.get("document_note") or file.filename
     upload_date = datetime.datetime.now()
+    uploaded_by = session["username"]
 
     if file and file.filename != "":
         # TODO: Documents upload post
         pass
         # Create new document record
-        new_document = Document(note=note, upload_date=upload_date, filename=file.filename)
+        new_document = Document(note=note, upload_date=upload_date, filename=file.filename, uploaded_by=uploaded_by)
         db.session.add(new_document)
         db.session.commit()
         flash("Document uploaded successfully.", "success")
@@ -280,7 +334,7 @@ def documents_post():
     return redirect("/documents")
 
 @app.route('/documents/delete/<int:id>', methods=['POST'])
-def documents_delete(id):
+def documents_post_delete(id):
     if not check_authentication():
         return redirect("/login")
 
@@ -293,18 +347,20 @@ def documents_delete(id):
         flash("Document not found.", "error")
     return redirect("/documents")
 
-@app.route('/documents/<int:id>', methods=['GET'])
-def documents_view(id):
+@app.route('/documents/update/<id>', methods=['POST'])
+def documents_post_update(id):
     if not check_authentication():
         return redirect("/login")
 
     document = Document.query.get(id)
+
     if document:
-        return render_template('view_document.html', document=document, username=session["username"])
+        document.note = request.form.get("document_note")
+        db.session.commit()
+        flash("Document updated successfully.", "success")
     else:
         flash("Document not found.", "error")
-        return redirect("/documents")
-
+    return redirect(f"/documents/{id}")
 def setup_database():
     with app.app_context():
         # 1. Create all tables defined in models.py

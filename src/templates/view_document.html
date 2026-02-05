@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}View Document{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        Document Details
+    </div>
+    <div class="card-body">
+        <form action="/documents/update/{{ document.id }}" method="POST">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="h3">View Document</h2>
+                <div class="d-flex">
+                    <button type="submit" class="btn btn-primary me-2">Save note</button>
+                    <a href="/documents/delete/{{ document.id }}" class="btn btn-danger">Delete</a>
+                </div>
+            </div>
+            <p><strong>ID:</strong> {{ document.id}}</p>
+            <p><strong>Note:</strong><input value="{{ document.note }}" class="form-control" name="document_note" required></p>
+            <p><strong>Uploaded by:</strong> {{ document.uploaded_by }}</p>
+            <p><strong>Uploaded on:</strong> {{ document.timestamp.strftime('%d-%m-%Y') }}</p>
+            <hr>
+            <img src="{{ document.filename }}" class="img-fluid" alt="Document">
+        </form>
+    </div>
+</div>
+{% endblock %}

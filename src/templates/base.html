@@ -72,12 +72,14 @@
 
             <!-- Year selection -->
             <div class="mt-4">
-                <label for="yearSelect" class="form-label text-white">Select Year</label>
-                <select id="yearSelect" class="form-select" onchange="location = '/expenses/' + this.value;">
-                    {% for y in range(1900, 2027)|reverse %}
-                        <option value="{{ y }}">{{ y }}</option>
-                    {% endfor %}
-                </select>
+                <form id="sidebar-year-selector-form" action="/set_year" method="post">
+                    <label for="sidebar-year-select" class="form-label text-white">Select Year</label>
+                    <select id="sidebar-year-select" name="year" class="form-select" onchange="this.form.submit()">
+                        {% for year in available_years %}
+                            <option value="{{ year }}" {% if year == budget_year %}selected{% endif %}>{{ year }}</option>
+                        {% endfor %}
+                    </select>
+                </form>
             </div>
         </div>
 
