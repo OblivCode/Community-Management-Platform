@@ -39,6 +39,7 @@ class Transaction(db.Model):
 
 class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    note = db.Column(db.String(100), nullable=False)
     filename = db.Column(db.String(200), nullable=False)
     upload_date = db.Column(db.DateTime, nullable=False)
 

@@ -196,20 +196,105 @@ def expenses_post():
 
     # Get form data
     timestamp = datetime.datetime.now()
-    note = request.form.get("note")
-    category = request.form.get("category")
-    cost = float(request.form.get("cost"))
-    budget_id = int(request.form.get("budget_id"))
-    user = User.query.filter_by(username=session["username"]).first()
+    note = request.form.get("note") or ""
+    category = request.form.get("category") or "Uncategorized"
+    cost = float(request.form.get("cost") or 0.0) 
+    budget_id = int(request.form.get("budget_id")) # Mandatory
+    user = User.query.filter_by(username=session["username"]).first() # Mandatory
 
+    if not user or not budget_id:
+        flash("Missing required fields.", "error")
+        return redirect("/expenses")
+
+    document_id = request.form.get("document_id")
+    receipt_file = request.files.get("receipt_file")
+
+    if receipt_file and receipt_file.filename != "":
+        # TODO: Documents upload post
+        pass
+    elif document_id:
+        docuemnt = Document.query.get(document_id)
+        if not docuemnt:
+            flash("Document ID not found.", "error")
+            return redirect("/expenses")
+    
     # Create new transaction
     new_transaction = Transaction(cost=cost, note=note, timestamp=timestamp, category=category, author=user.id, budget_id=budget_id)
     
     db.session.add(new_transaction)
     db.session.commit()
     return redirect("/expenses")
+
+@app.route('/expenses/delete/<int:id>', methods=['POST'])
+def expenses_delete(id):
+    if not check_authentication():
+        return redirect("/login")
     
+    transaction = Transaction.query.get(id)
+    if transaction:
+        db.session.delete(transaction)
+        db.session.commit()
+        flash("Transaction deleted successfully.", "success")
+    else:
+        flash("Transaction not found.", "error")
+    return redirect("/expenses")
+
+# Document Management Route
+@app.route('/documents', methods=['GET'])
+def documents_get():
+    if not check_authentication():
+        return redirect("/login")
     
+    documents = Document.query.all()
+    return render_template('documents.html', documents=documents, username=session["username"])
+
+@app.route('/documents', methods=['POST'])
+def documents_post():
+    if not check_authentication():
+        return redirect("/login")
+    
+    # Get form data
+    file = request.files.get("document_file")
+    note = request.form.get("document_note") or file.filename
+    upload_date = datetime.datetime.now()
+
+    if file and file.filename != "":
+        # TODO: Documents upload post
+        pass
+        # Create new document record
+        new_document = Document(note=note, upload_date=upload_date, filename=file.filename)
+        db.session.add(new_document)
+        db.session.commit()
+        flash("Document uploaded successfully.", "success")
+    else:
+        flash("No file selected.", "error")
+    return redirect("/documents")
+
+@app.route('/documents/delete/<int:id>', methods=['POST'])
+def documents_delete(id):
+    if not check_authentication():
+        return redirect("/login")
+
+    document = Document.query.get(id)
+    if document:
+        db.session.delete(document)
+        db.session.commit()
+        flash("Document deleted successfully.", "success")
+    else:
+        flash("Document not found.", "error")
+    return redirect("/documents")
+
+@app.route('/documents/<int:id>', methods=['GET'])
+def documents_view(id):
+    if not check_authentication():
+        return redirect("/login")
+
+    document = Document.query.get(id)
+    if document:
+        return render_template('view_document.html', document=document, username=session["username"])
+    else:
+        flash("Document not found.", "error")
+        return redirect("/documents")
 
 def setup_database():
     with app.app_context():
@@ -235,8 +320,6 @@ def setup_database():
             # Commit to Database
             db.session.commit()
             print("✅ Database initialized with Users: Jay (Treasurer) & Skipper (Captain)")
-
-
 
 if __name__ == '__main__':
     import audit # Register audit listeners

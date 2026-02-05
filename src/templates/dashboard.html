@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block title %}Dashboard{% endblock %}
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="h3">Dashboard</h2>
@@ -117,11 +119,11 @@
                     by {{ tranc.user.username }} on {{ tranc.timestamp.strftime('%d-%m-%Y') }}
                 </div>
             </div>
-            <span class="fw-bold text-danger">-{{currency}}{{ "%.2f"|format(tranccost) }}</span>
+            <span class="fw-bold text-danger">-{{ currency }}{{ "%.2f"|format(tranc.cost) }}</span>
         </div>
         {% else %}
         <div class="list-group-item text-center text-muted py-4">
-            No recent transactionsrecorded.
+            No recent transactions recorded.
         </div>
         {% endfor %}
     </div>
@@ -137,4 +139,5 @@
             No recent actions recorded.
         </div>
     </div>
+ </div>
 {% endblock %}
