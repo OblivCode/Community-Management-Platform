@@ -12,6 +12,7 @@ class User(db.Model):
     username = db.Column(db.String(100), unique=True, nullable=False)
     password = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(100), nullable=False)
+    theme = db.Column(db.String(10), nullable=False, default='light')
 
     transactions = db.relationship('Transaction', backref='user', lazy=True)
 
@@ -32,7 +33,8 @@ class Asset(db.Model):
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    cost = db.Column(db.Float, nullable=False) # amount
+    cost = db.Column(db.Float, nullable=False) # amount in original currency
+    currency = db.Column(db.String(3), nullable=False, default='GBP') # ISO 4217 code
     note = db.Column(db.String(200), nullable=False)
     timestamp = db.Column(db.DateTime, nullable=False)
     category = db.Column(db.String(100), nullable=False)
@@ -61,6 +63,12 @@ class Event(db.Model):
 class ActionLog(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, nullable=True)
-    action = db.Column(db.String(200), nullable=False)
+    action_type = db.Column(db.String(50), nullable=False)
+    details = db.Column(db.String(500), nullable=True)
     timestamp = db.Column(db.DateTime, nullable=False)
+
+class Setting(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    key = db.Column(db.String(100), unique=True, nullable=False)
+    value = db.Column(db.String(100), nullable=False)
 
