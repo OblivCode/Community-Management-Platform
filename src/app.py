@@ -1,6 +1,7 @@
 import datetime
 import requests as http_requests
 from flask import Flask, jsonify, render_template, request, session, redirect, flash
+from flask_migrate import Migrate
 from auth import validateUser
 from models import ActionLog, AssetStatus, Document, Setting, Transaction, db, User, Budget, Asset
 import os
@@ -16,6 +17,7 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'cm
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
+migrate = Migrate(app, db)
 
 # Supported currencies: code -> symbol
 CURRENCY_SYMBOLS = {
