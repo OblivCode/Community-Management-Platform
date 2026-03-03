@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Settings</h1>
+
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">General Settings</h5>
+        <form action="/settings" method="post">
+            <div class="mb-3">
+                <label for="currency_code" class="form-label">Default Currency</label>
+                <select class="form-select" id="currency_code" name="currency_code">
+                    {% for code, symbol in currency_symbols.items() %}
+                    <option value="{{ code }}" {% if code == currency_code %}selected{% endif %}>
+                        {{ code }} ({{ symbol }})
+                    </option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Used as the default for expenses and budget totals.</div>
+            </div>
+            <button type="submit" class="btn btn-primary">Save General Settings</button>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-body">
+        <h5 class="card-title">User Settings</h5>
+        <form action="/settings/user" method="post">
+            <div class="mb-3">
+                <label for="theme" class="form-label">Theme</label>
+                <select class="form-select" id="theme" name="theme">
+                    <option value="light" {% if session.get('theme') == 'light' %}selected{% endif %}>Light</option>
+                    <option value="dark" {% if session.get('theme') == 'dark' %}selected{% endif %}>Dark</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">Save User Settings</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
