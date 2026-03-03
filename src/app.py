@@ -1,7 +1,7 @@
 import datetime
 import requests as http_requests
 from flask import Flask, jsonify, render_template, request, session, redirect, flash
-from flask_migrate import Migrate
+from flask_migrate import Migrate, upgrade
 from auth import validateUser
 from models import ActionLog, AssetStatus, Document, Setting, Transaction, db, User, Budget, Asset
 import os
@@ -503,9 +503,8 @@ def documents_post_update(id):
 
 def setup_database():
     with app.app_context():
-        # 1. Drop stale action_log table to apply schema fixes, then recreate all tables
-        ActionLog.__table__.drop(bind=db.engine, checkfirst=True)
-        db.create_all()
+        # 1. Apply any pending migrations (replaces bare db.create_all)
+        upgrade()
 
         # 2. Load persisted settings
         row = Setting.query.filter_by(key='currency_code').first()
