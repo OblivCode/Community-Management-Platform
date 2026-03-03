@@ -498,6 +498,7 @@ def documents_post_update(id):
     else:
         flash("Document not found.", "error")
     return redirect(f"/documents/{id}")
+
 def setup_database():
     with app.app_context():
         # 1. Drop stale action_log table to apply schema fixes, then recreate all tables
