@@ -1,20 +1,36 @@
 import datetime
+import os
 import requests as http_requests
 from flask import Flask, jsonify, render_template, request, session, redirect, flash
 from flask_migrate import Migrate, upgrade
+from werkzeug.utils import secure_filename
 from auth import validateUser
 from models import ActionLog, AssetStatus, Document, Setting, Transaction, db, User, Budget, Asset
-import os
 
 app = Flask(__name__)
 
 # Configure session to expire on browser close
-app.config["SESSION_PERMANENT"] = False 
-app.secret_key = 'secret'
+app.config["SESSION_PERMANENT"] = False
+app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'cmp.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
+
+def allowed_file(filename: str) -> bool:
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def save_upload(file) -> str | None:
+    """Save an uploaded file to UPLOAD_FOLDER. Returns the filename or None on failure."""
+    if file and file.filename and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(UPLOAD_FOLDER, filename))
+        return filename
+    return None
 
 db.init_app(app)
 migrate = Migrate(app, db)
@@ -63,6 +79,9 @@ def inject_budget_year():
         session["budget_year"] = str(datetime.datetime.now().year)
     budget_year = session["budget_year"]
     available_years = [str(year) for year in range(datetime.datetime.now().year + 1, 2020, -1)]
+    # UI display currency (session-based, does not touch DB)
+    ui_currency_code = session.get('ui_currency', app_settings['currency_code'])
+    ui_currency_symbol = CURRENCY_SYMBOLS.get(ui_currency_code, '£')
     return dict(
         budget_year=budget_year,
         available_years=available_years,
@@ -70,6 +89,8 @@ def inject_budget_year():
         currency=app_settings['currency'],
         currency_code=app_settings['currency_code'],
         currency_symbols=CURRENCY_SYMBOLS,
+        ui_currency_code=ui_currency_code,
+        ui_currency_symbol=ui_currency_symbol,
     )
 
 
@@ -136,10 +157,8 @@ def dashboard():
         budget = Budget(year=budget_year, total_fund=0, remaining_fund=0)
         flash(f"No budget found for year {budget_year}.", "info")
 
-    total_budget = budget.total_fund
-    remaining_budget = budget.remaining_fund
     count_no_receipt = Transaction.query.filter_by(budget_id=budget.id, document_id=None).count() if budget.id else 0
-    
+
     # B. Asset Overview
     count_assets = Asset.query.count()
     count_assets_damaged = Asset.query.filter(Asset.status == AssetStatus.DAMAGED).count()
@@ -147,23 +166,37 @@ def dashboard():
     # C. Document Overview
     count_documents = Document.query.count()
     unlinked_documents = Document.query.filter_by(parent_id=None).count()
-    
-    # D. Action log
+
+    # D. Recent transactions
     recent_transactions = Transaction.query.order_by(Transaction.timestamp.desc()).filter_by(budget_id=budget.id).limit(3).all() if budget.id else []
-    
+
+    # E. Convert budget totals and transaction costs to UI display currency
+    ui_code = session.get('ui_currency', app_settings['currency_code'])
+    ui_symbol = CURRENCY_SYMBOLS.get(ui_code, '£')
+    budget_currency = (budget.currency if budget and budget.currency else None) or app_settings['currency_code']
+    budget_rate = get_exchange_rate(budget_currency, ui_code)
+    total_budget = round(budget.total_fund * budget_rate, 2)
+    remaining_budget = round(budget.remaining_fund * budget_rate, 2)
+    tx_ui_costs = {}
+    for t in recent_transactions:
+        rate = get_exchange_rate(t.currency, ui_code)
+        tx_ui_costs[t.id] = round(t.cost * rate, 2)
+
     minimum_budget_health = budget_health_threshold * 100
-    
-    return render_template('dashboard.html', 
+
+    return render_template('dashboard.html',
                            username=session["username"],
                            minimum_budget_health=minimum_budget_health,
                            total_budget=total_budget,
                            remaining_budget=remaining_budget,
+                           ui_symbol=ui_symbol,
+                           tx_ui_costs=tx_ui_costs,
                            count_no_receipt=count_no_receipt,
                            count_assets=count_assets,
                            count_assets_damaged=count_assets_damaged,
                            count_documents=count_documents,
                            unlinked_documents=unlinked_documents,
-                            recent_transactions=recent_transactions)
+                           recent_transactions=recent_transactions)
 
 @app.route('/settings', methods=['GET', 'POST'])
 def settings():
@@ -200,6 +233,16 @@ def settings_user():
         flash("Theme updated.", "success")
     
     return redirect('/settings')
+
+@app.route('/set_ui_currency', methods=['POST'])
+def set_ui_currency():
+    """Store the user's preferred display currency in the session (no DB write)."""
+    if not check_authentication():
+        return redirect("/login")
+    code = request.form.get('ui_currency', app_settings['currency_code'])
+    if code in CURRENCY_SYMBOLS:
+        session['ui_currency'] = code
+    return redirect(request.referrer or '/dashboard')
 
 @app.route('/set_year', methods=['POST'])
 def set_year():
@@ -254,7 +297,9 @@ def assets_post(operation=None):
         if existing_asset:
             flash("Asset with this name already exists.", "error")
         else:
-            new_asset = Asset(name=name, location=location, status=status, count = count)
+            asset_image = request.files.get("asset_image")
+            asset_filename = save_upload(asset_image) if asset_image and asset_image.filename else None
+            new_asset = Asset(name=name, location=location, status=status, count=count, filename=asset_filename)
             db.session.add(new_asset)
             db.session.commit()
     elif operation == "update":
@@ -267,11 +312,16 @@ def assets_post(operation=None):
             if existing_asset and existing_asset.id != asset.id:
                 flash("Asset with this name already exists.", "error")
                 return redirect("/assets")
-                
+
             asset.location = request.form.get("location")
             status_str = request.form.get("status")
             asset.status = AssetStatus(status_str) if status_str else AssetStatus.FINE
             asset.count = request.form.get("count")
+            asset_image = request.files.get("asset_image")
+            if asset_image and asset_image.filename:
+                saved = save_upload(asset_image)
+                if saved:
+                    asset.filename = saved
             db.session.commit()
         else:
             flash(f"Could not update asset with ID {id}: Asset not found", "error")
@@ -294,25 +344,49 @@ def expenses_get(year=None):
         return redirect("/login")
     
     year = session["budget_year"] or str(datetime.datetime.now().year)
-    
-    
+
     # Get budget for the year
     budget = Budget.query.filter_by(year=year).first()
     transactions = []
     count_no_receipt = 0
     if budget:
-        # Get all transactions for the budget
         transactions = Transaction.query.filter_by(budget_id=budget.id).all()
-        # Get transactions without document/receipt
         count_no_receipt = Transaction.query.filter_by(budget_id=budget.id, document_id=None).count()
     else:
         budget = Budget(year=year, total_fund=0.0, remaining_fund=0.0)
         flash(f"No budget found for year {year}. Showing empty budget.", "info")
-    
+
+    # Determine UI currency and convert budget totals for display
+    ui_code = session.get('ui_currency', app_settings['currency_code'])
+    budget_currency = budget.currency if hasattr(budget, 'currency') and budget.currency else app_settings['currency_code']
+    ui_symbol = CURRENCY_SYMBOLS.get(ui_code, '£')
+    ui_rate = get_exchange_rate(budget_currency, ui_code)
+    ui_total_fund = round(budget.total_fund * ui_rate, 2)
+    ui_remaining_fund = round(budget.remaining_fund * ui_rate, 2)
+
+    # Pre-convert each transaction cost to UI currency
+    tx_ui_costs = {}
+    for t in transactions:
+        rate = get_exchange_rate(t.currency, ui_code)
+        tx_ui_costs[t.id] = round(t.cost * rate, 2)
+
     # Get all documents for the link receipt modal
     documents = Document.query.all()
-    
-    return render_template('expenses.html', transactions=transactions, budget=budget, count_no_receipt=count_no_receipt, documents=documents, username=session["username"], currency_symbols=CURRENCY_SYMBOLS)
+
+    return render_template(
+        'expenses.html',
+        transactions=transactions,
+        budget=budget,
+        budget_currency=budget_currency,
+        count_no_receipt=count_no_receipt,
+        documents=documents,
+        username=session["username"],
+        currency_symbols=CURRENCY_SYMBOLS,
+        ui_total_fund=ui_total_fund,
+        ui_remaining_fund=ui_remaining_fund,
+        ui_symbol=ui_symbol,
+        tx_ui_costs=tx_ui_costs,
+    )
 
 @app.route('/expenses', methods=['POST'])
 def expenses_post():
@@ -339,17 +413,30 @@ def expenses_post():
     receipt_file = request.files.get("receipt_file")
 
     if receipt_file and receipt_file.filename != "":
-        # TODO: Documents upload post
-        document_id = None  # ignore document_id if file also provided
+        saved_name = save_upload(receipt_file)
+        if saved_name:
+            new_doc = Document(
+                note=f"Receipt: {note}",
+                filename=saved_name,
+                timestamp=timestamp,
+                uploaded_by=user.id,
+            )
+            db.session.add(new_doc)
+            db.session.flush()  # get the new ID before commit
+            document_id = new_doc.id
+        else:
+            flash("Invalid file type for receipt. Allowed: images and PDF.", "warning")
+            document_id = None
     elif document_id:
         doc = Document.query.get(document_id)
         if not doc:
             flash("Document ID not found.", "error")
             return redirect("/expenses")
 
-    # Convert cost to default currency for budget deduction
-    default_code = app_settings['currency_code']
-    rate = get_exchange_rate(currency_code, default_code)
+    # Convert cost to budget's own currency for deduction
+    budget = Budget.query.get(budget_id)
+    budget_currency = (budget.currency if budget and budget.currency else None) or app_settings['currency_code']
+    rate = get_exchange_rate(currency_code, budget_currency)
     cost_in_default = round(cost * rate, 2)
 
     # Create new transaction
@@ -364,14 +451,13 @@ def expenses_post():
         document_id=document_id,
     )
 
-    # Deduct from budget
-    budget = Budget.query.get(budget_id)
+    # Deduct from budget (cost_in_default is already in budget_currency)
     if budget:
         budget.remaining_fund = round(budget.remaining_fund - cost_in_default, 2)
 
     db.session.add(new_transaction)
     db.session.commit()
-    return redirect("/expenses")
+    return redirect("/expenses?prompt_asset=1")
 
 @app.route('/expenses/<year>', methods=['GET'])
 def expenses_post_year(year):
@@ -386,12 +472,19 @@ def expenses_post_year(year):
 def expenses_delete(id):
     if not check_authentication():
         return redirect("/login")
-    
+
     transaction = Transaction.query.get(id)
     if transaction:
+        # Refund cost back to budget in budget currency
+        budget = transaction.budget
+        if budget:
+            budget_currency = budget.currency or app_settings['currency_code']
+            refund_rate = get_exchange_rate(transaction.currency, budget_currency)
+            refund = round(transaction.cost * refund_rate, 2)
+            budget.remaining_fund = round(budget.remaining_fund + refund, 2)
         db.session.delete(transaction)
         db.session.commit()
-        flash("Transaction deleted successfully.", "success")
+        flash("Transaction deleted and amount refunded to budget.", "success")
     else:
         flash("Transaction not found.", "error")
     return redirect("/expenses")
@@ -400,24 +493,40 @@ def expenses_delete(id):
 def expenses_link_document(transaction_id):
     if not check_authentication():
         return redirect("/login")
-    
+
     transaction = Transaction.query.get(transaction_id)
-    document_id = request.form.get("document_id")
-    
     if not transaction:
         flash("Transaction not found.", "error")
         return redirect("/expenses")
-    
-    if not document_id:
-        flash("Please select a document to link.", "error")
+
+    user = User.query.filter_by(username=session["username"]).first()
+    receipt_file = request.files.get("receipt_file")
+    document_id = request.form.get("document_id") or None
+
+    if receipt_file and receipt_file.filename != "":
+        saved_name = save_upload(receipt_file)
+        if saved_name:
+            new_doc = Document(
+                note=f"Receipt for transaction #{transaction_id}",
+                filename=saved_name,
+                timestamp=datetime.datetime.now(),
+                uploaded_by=user.id,
+            )
+            db.session.add(new_doc)
+            db.session.flush()
+            document_id = new_doc.id
+        else:
+            flash("Invalid file type. Allowed: images and PDF.", "warning")
+            return redirect("/expenses")
+    elif document_id:
+        doc = Document.query.get(document_id)
+        if not doc:
+            flash("Document not found.", "error")
+            return redirect("/expenses")
+    else:
+        flash("Please select a document or upload a receipt file.", "error")
         return redirect("/expenses")
-    
-    document = Document.query.get(document_id)
-    if not document:
-        flash("Document not found.", "error")
-        return redirect("/expenses")
-    
-    # Link the document to the transaction
+
     transaction.document_id = document_id
     db.session.commit()
     flash("Receipt linked successfully.", "success")
@@ -457,17 +566,19 @@ def documents_post():
     uploader = User.query.filter_by(username=session["username"]).first()
 
     if file and file.filename != "":
-        # TODO: Documents upload post (save file to disk)
-        # Create new document record
-        new_document = Document(
-            note=note,
-            timestamp=timestamp,
-            filename=file.filename,
-            uploaded_by=uploader.id,
-        )
-        db.session.add(new_document)
-        db.session.commit()
-        flash("Document uploaded successfully.", "success")
+        saved_name = save_upload(file)
+        if saved_name:
+            new_document = Document(
+                note=note,
+                timestamp=timestamp,
+                filename=saved_name,
+                uploaded_by=uploader.id,
+            )
+            db.session.add(new_document)
+            db.session.commit()
+            flash("Document uploaded successfully.", "success")
+        else:
+            flash("Invalid file type. Allowed: images (png, jpg, gif, webp) and PDF.", "error")
     else:
         flash("No file selected.", "error")
     return redirect("/documents")
@@ -501,10 +612,29 @@ def documents_post_update(id):
         flash("Document not found.", "error")
     return redirect(f"/documents/{id}")
 
+@app.route('/budget/set_currency', methods=['POST'])
+def budget_set_currency():
+    """Update the stored currency of a budget (affects how fund amounts are interpreted)."""
+    if not check_authentication():
+        return redirect("/login")
+    budget_id = request.form.get("budget_id")
+    new_currency = request.form.get("budget_currency")
+    if budget_id and new_currency in CURRENCY_SYMBOLS:
+        budget = Budget.query.get(budget_id)
+        if budget:
+            budget.currency = new_currency
+            db.session.commit()
+            flash(f"Budget currency set to {new_currency}.", "success")
+        else:
+            flash("Budget not found.", "error")
+    else:
+        flash("Invalid currency selection.", "error")
+    return redirect("/expenses")
+
 def setup_database():
     with app.app_context():
         # 1. Apply any pending migrations (replaces bare db.create_all)
-        upgrade()
+        upgrade(directory=os.path.join(basedir, 'migrations'))
 
         # 2. Load persisted settings
         row = Setting.query.filter_by(key='currency_code').first()
