@@ -30,6 +30,7 @@
 **/obj
 **/secrets.dev.yaml
 **/values.dev.yaml
+src/data
 tests/
 .env
 LICENSE
