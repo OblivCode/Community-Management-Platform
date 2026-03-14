@@ -7,6 +7,20 @@
     <div class="col-md-4">
         <h2 class="h3 mb-0">Expense Management</h2>
     </div>
+    <div class="col-md-4">
+        <!-- Budget currency setter -->
+        {% if budget.id %}
+        <form action="/budget/set_currency" method="POST" class="d-flex align-items-center gap-2">
+            <input type="hidden" name="budget_id" value="{{ budget.id }}">
+            <label class="form-label mb-0 text-muted small text-nowrap">Budget stored in:</label>
+            <select class="form-select form-select-sm" name="budget_currency" onchange="this.form.submit()" style="max-width:140px">
+                {% for code, symbol in currency_symbols.items() %}
+                <option value="{{ code }}" {% if code == budget_currency %}selected{% endif %}>{{ code }} ({{ symbol }})</option>
+                {% endfor %}
+            </select>
+        </form>
+        {% endif %}
+    </div>
     <div class="col-md-4 text-end">
         <button class="btn btn-primary" type="button" data-bs-toggle="modal" data-bs-target="#addTransModal">
             <i class="bi bi-plus-lg"></i> Add Transaction
@@ -19,7 +33,10 @@
         <div class="card bg-light border-0 shadow-sm">
             <div class="card-body text-center">
                 <small class="text-muted">Total Budget</small>
-                <h3 class="fw-bold">{{ settings.currency or '£' }}{{ budget.total_fund }}</h3>
+                <h3 class="fw-bold">{{ ui_symbol }}{{ ui_total_fund }}</h3>
+                {% if ui_currency_code != budget_currency %}
+                <small class="text-muted">{{ currency_symbols.get(budget_currency, '') }}{{ budget.total_fund }} {{ budget_currency }}</small>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -29,8 +46,11 @@
             <div class="card-body text-center">
                 <small class="text-muted">Remaining</small>
                 <h3 class="fw-bold text-{{ 'success' if budget.remaining_fund > 200 else 'danger' }}">
-                    {{ settings.currency or '£' }}{{ budget.remaining_fund }}
+                    {{ ui_symbol }}{{ ui_remaining_fund }}
                 </h3>
+                {% if ui_currency_code != budget_currency %}
+                <small class="text-muted">{{ currency_symbols.get(budget_currency, '') }}{{ budget.remaining_fund }} {{ budget_currency }}</small>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -71,9 +91,10 @@
                         {{ t.note }}
                     </td>
                     
-                    <td class="fw-bold text-danger">-{{ currency_symbols.get(t.currency, currency) }}{{ t.cost }}
-                        {% if t.currency != currency_code %}
-                        <small class="text-muted">({{ t.currency }})</small>
+                    <td class="fw-bold text-danger">
+                        -{{ ui_symbol }}{{ tx_ui_costs.get(t.id, t.cost) }}
+                        {% if t.currency != ui_currency_code %}
+                        <small class="text-muted d-block">{{ currency_symbols.get(t.currency, '') }}{{ t.cost }} {{ t.currency }}</small>
                         {% endif %}
                     </td>
                     
@@ -87,20 +108,18 @@
                                 <i class="bi bi-file-earmark-check"></i> View
                             </a>
                         {% else %}
-                            <span class="badge bg-warning text-dark">Pending</span>
-                        {% endif %}
-                    </td>
-                    
-                    <td class="text-end">
-                        {% if t.document_id is none %}
-                            <button type="button" class="btn btn-sm btn-outline-primary me-1"
+                            <span class="badge bg-warning text-dark me-1">Pending</span>
+                            <button type="button" class="btn btn-sm btn-outline-primary"
                                     data-bs-toggle="modal" data-bs-target="#linkDocModal"
                                     onclick="setTransactionId({{ t.id }})">
                                 <i class="bi bi-link"></i> Link
                             </button>
                         {% endif %}
-                        <form action="/expenses/delete/{{ t.id }}" method="GET" class="d-inline"
-                              onsubmit="return confirm('Are you sure? This will refund {{ currency_symbols.get(t.currency, currency) }}{{ t.cost }} to the budget.');">
+                    </td>
+                    
+                    <td class="text-end">
+                        <form action="/expenses/delete/{{ t.id }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('Are you sure? This will refund {{ currency_symbols.get(t.currency, '') }}{{ t.cost }} {{ t.currency }} to the budget.');">
                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                 <i class="bi bi-trash"></i>
                             </button>
@@ -124,7 +143,7 @@
                 <h5 class="modal-title">Record Expense</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="/expenses" method="POST">
+            <form action="/expenses" method="POST" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="budget_id" value="{{ budget.id }}">
                     <div class="mb-3">
@@ -186,18 +205,29 @@
                 <h5 class="modal-title">Link Receipt to Transaction</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="" method="POST" id="linkDocForm">
+            <form action="" method="POST" id="linkDocForm" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" name="transaction_id" id="linkTransactionId">
-                    <div class="mb-3">
-                        <label class="form-label">Select Document</label>
-                        <select class="form-select" name="document_id" required>
+
+                    <!-- Option A: Upload a new receipt file -->
+                    <div class="mb-3" id="linkFileSection">
+                        <label class="form-label fw-semibold">Upload New Receipt <span class="text-muted">(optional)</span></label>
+                        <input id="linkReceiptFile" type="file" class="form-control" name="receipt_file" accept="image/*,.pdf">
+                        <div class="form-text" id="linkFileHelper"></div>
+                    </div>
+
+                    <div class="text-center text-muted my-2">— or —</div>
+
+                    <!-- Option B: Choose an existing document -->
+                    <div class="mb-3" id="linkDocSection">
+                        <label class="form-label fw-semibold">Select Existing Document <span class="text-muted">(optional)</span></label>
+                        <select class="form-select" name="document_id" id="linkDocSelect">
                             <option value="">-- Choose a document --</option>
                             {% for doc in documents %}
                             <option value="{{ doc.id }}">{{ doc.id }} - {{ doc.note }} ({{ doc.timestamp.strftime('%Y-%m-%d') }})</option>
                             {% endfor %}
                         </select>
-                        <div class="form-text">Select a document to link as the receipt for this transaction.</div>
+                        <div class="form-text">Select an already-uploaded document to use as the receipt.</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -215,7 +245,46 @@ function setTransactionId(transactionId) {
     document.getElementById('linkDocForm').action = '/expenses/link/' + transactionId;
 }
 
-// Mutual exclusion: Document ID <-> Receipt file upload
+// Mutual exclusion in linkDocModal: upload file vs select existing doc
+(function () {
+    const linkFile  = document.getElementById('linkReceiptFile');
+    const linkSelect = document.getElementById('linkDocSelect');
+    const linkFileHelper = document.getElementById('linkFileHelper');
+
+    linkFile.addEventListener('change', function () {
+        if (linkFile.files.length > 0) {
+            linkSelect.disabled = true;
+            linkSelect.closest('.mb-3').style.opacity = '0.45';
+            linkFileHelper.textContent = 'File selected — existing document selector disabled.';
+        } else {
+            linkSelect.disabled = false;
+            linkSelect.closest('.mb-3').style.opacity = '';
+            linkFileHelper.textContent = '';
+        }
+    });
+
+    linkSelect.addEventListener('change', function () {
+        if (linkSelect.value !== '') {
+            linkFile.disabled = true;
+            linkFile.closest('.mb-3').style.opacity = '0.45';
+        } else {
+            linkFile.disabled = false;
+            linkFile.closest('.mb-3').style.opacity = '';
+        }
+    });
+
+    document.getElementById('linkDocModal').addEventListener('hidden.bs.modal', function () {
+        linkFile.value = '';
+        linkFile.disabled = false;
+        linkFile.closest('.mb-3').style.opacity = '';
+        linkFileHelper.textContent = '';
+        linkSelect.value = '';
+        linkSelect.disabled = false;
+        linkSelect.closest('.mb-3').style.opacity = '';
+    });
+}());
+
+// Mutual exclusion in addTransModal: Document ID <-> Receipt file upload
 (function () {
     const docIdInput  = document.getElementById('documentId');
     const fileInput   = document.getElementById('receiptFile');
@@ -267,5 +336,65 @@ function setTransactionId(transactionId) {
         fileInput.value = '';
     });
 }());
+
+// After a new transaction is added, prompt user to also create an asset
+document.addEventListener('DOMContentLoaded', function () {
+    var params = new URLSearchParams(window.location.search);
+    if (params.get('prompt_asset') === '1') {
+        // Clean the URL so a reload doesn't re-open the modal
+        var cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+        var addAssetModal = new bootstrap.Modal(document.getElementById('addAssetAfterTxModal'));
+        addAssetModal.show();
+    }
+});
 </script>
+
+<!-- Add Asset After Transaction Modal -->
+<div class="modal fade" id="addAssetAfterTxModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add a Related Asset? <span class="badge bg-secondary ms-2">Optional</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="/assets/add" method="post" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <p class="text-muted small mb-3">Transaction recorded. You can optionally create a new asset associated with this purchase.</p>
+                    <div class="mb-3">
+                        <label class="form-label">Asset Name</label>
+                        <input type="text" class="form-control" name="name" placeholder="e.g. Match Balls" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Location</label>
+                        <input type="text" class="form-control" name="location" placeholder="e.g. Storage" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" name="status" required>
+                                <option value="Fine">Fine</option>
+                                <option value="Damaged">Damaged</option>
+                                <option value="Lost">Lost</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Count</label>
+                            <input type="number" class="form-control" name="count" min="1" value="1" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Image <span class="text-muted">(optional)</span></label>
+                        <input type="file" class="form-control" name="asset_image" accept="image/*">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Skip</button>
+                    <button type="submit" class="btn btn-primary">Add Asset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}

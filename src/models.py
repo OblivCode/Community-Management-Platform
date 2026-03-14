@@ -21,6 +21,7 @@ class Budget(db.Model):
     year = db.Column(db.String(4), default='2025')
     total_fund = db.Column(db.Float, default=0.0)
     remaining_fund = db.Column(db.Float, default=0.0)
+    currency = db.Column(db.String(3), nullable=False, default='GBP')  # ISO 4217 — budget funds stored in this currency
 
     transactions = db.relationship('Transaction', backref='budget', lazy=True)
 
@@ -30,6 +31,7 @@ class Asset(db.Model):
     location = db.Column(db.String(100), default='Storage')
     status = db.Column(db.Enum(AssetStatus), default=AssetStatus.FINE, nullable=False)
     count = db.Column(db.Integer, nullable=False)
+    filename = db.Column(db.String(255), nullable=True)  # optional image
 
 class Transaction(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -50,6 +52,7 @@ class Document(db.Model):
     filename = db.Column(db.String(200), nullable=False)
     timestamp = db.Column(db.DateTime, nullable=False)
     uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    uploader = db.relationship('User', foreign_keys=[uploaded_by], lazy=True)
 
     parent_id = db.Column(db.String(100), nullable=True)  # e.g., could be linked to Transaction or Event
 
@@ -71,4 +74,3 @@ class Setting(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(100), unique=True, nullable=False)
     value = db.Column(db.String(100), nullable=False)
-

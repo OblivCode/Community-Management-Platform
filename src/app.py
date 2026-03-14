@@ -4,8 +4,8 @@ import requests as http_requests
 from flask import Flask, jsonify, render_template, request, session, redirect, flash
 from flask_migrate import Migrate, upgrade
 from werkzeug.utils import secure_filename
-from auth import validateUser
-from models import ActionLog, AssetStatus, Document, Setting, Transaction, db, User, Budget, Asset
+from .auth import validateUser
+from .models import ActionLog, AssetStatus, Document, Setting, Transaction, db, User, Budget, Asset
 
 app = Flask(__name__)
 
@@ -664,7 +664,7 @@ def setup_database():
 
 def main():
     setup_database()
-    import audit # Register audit listeners
+    from . import audit # Register audit listeners
     app.run()
 
 if __name__ == '__main__':

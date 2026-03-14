@@ -1,4 +1,4 @@
-from models import User
+from .models import User
 
 def validateUser(username, password):
     print(f"Validating user: {username}")

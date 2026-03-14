@@ -17,6 +17,7 @@
             <th scope="col">Location</th>
             <th scope="col">Status</th>
             <th scope="col">Count</th>
+            <th scope="col">Image</th>
             <th scope="col" class="text-end">Actions</th>
         </tr>
     </thead>
@@ -37,6 +38,18 @@
             <td>
                 {{ asset.count }}
             </td>
+            <td>
+                {% if asset.filename %}
+                <button type="button" class="btn btn-sm btn-outline-info"
+                    data-bs-toggle="modal" data-bs-target="#assetPreviewModal"
+                    data-filename="{{ asset.filename }}"
+                    data-name="{{ asset.name }}">
+                    <i class="bi bi-image"></i> Preview
+                </button>
+                {% else %}
+                <span class="text-muted small">None</span>
+                {% endif %}
+            </td>
             <!-- buttons -->
             <td class="text-end">
                 <button class="btn btn-sm btn-outline-primary me-2" 
@@ -47,7 +60,8 @@
                     data-name="{{ asset.name }}"
                     data-location="{{ asset.location }}"
                     data-status="{{ asset.status }}"
-                    data-count="{{ asset.count }}">
+                    data-count="{{ asset.count }}"
+                    data-filename="{{ asset.filename or '' }}">
                     <i class="bi bi-pencil"></i> 
                     Edit
                 </button>
@@ -77,7 +91,7 @@
                 <h5 class="modal-title" id="addAssetModalLabel">Add New Asset</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="/assets/add" method="post">
+            <form action="/assets/add" method="post" enctype="multipart/form-data">
                 <div class="modal-body">
                     <div class="mb-3">
                         <label for="assetName" class="form-label">Asset Name</label>
@@ -99,6 +113,10 @@
                         <label for="assetCount" class="form-label">Count</label>
                         <input type="number" class="form-control" id="assetCount" name="count" min="1" required>
                     </div>
+                    <div class="mb-3">
+                        <label for="assetImage" class="form-label">Image <span class="text-muted">(optional)</span></label>
+                        <input type="file" class="form-control" id="assetImage" name="asset_image" accept="image/*">
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -118,7 +136,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             
-            <form id="editForm" method="post" action="/assets/update">
+            <form id="editForm" method="post" action="/assets/update" enctype="multipart/form-data">
                 <div class="modal-body">
                     <input type="hidden" id="editAssetId" name="id">
                     
@@ -146,6 +164,12 @@
                         <input type="number" class="form-control" id="editCount" name="count" min="1" required>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label">Replace Image <span class="text-muted">(optional)</span></label>
+                        <div id="editCurrentImage" class="mb-2"></div>
+                        <input type="file" class="form-control" id="editAssetImage" name="asset_image" accept="image/*">
+                    </div>
+
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -155,6 +179,28 @@
         </div>
     </div>
 </div>
+
+<!-- Asset Preview Modal -->
+<div class="modal fade" id="assetPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="assetPreviewModalLabel">Asset Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center" id="assetPreviewBody">
+                <!-- populated by JS -->
+            </div>
+            <div class="modal-footer">
+                <a id="assetPreviewFullLink" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-up-right-square"></i> Open Full Image
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     var editModal = document.getElementById('editAssetModal');
     // When the modal is shown, populate the fields
@@ -167,6 +213,7 @@
         var location = button.getAttribute('data-location');
         var status = button.getAttribute('data-status');
         var count = button.getAttribute('data-count');
+        var filename = button.getAttribute('data-filename');
 
         // 2. Populate the modal fields
         document.getElementById('editAssetId').value = id;
@@ -175,7 +222,42 @@
         document.getElementById('editStatus').value = status;
         document.getElementById('editCount').value = count;
 
-    })
+        // 3. Show current image thumbnail if present
+        var imgContainer = document.getElementById('editCurrentImage');
+        if (filename) {
+            var ext = filename.split('.').pop().toLowerCase();
+            if (['jpg','jpeg','png','gif','webp'].indexOf(ext) !== -1) {
+                imgContainer.innerHTML = '<img src="/static/uploads/' + filename + '" class="img-thumbnail" style="max-height:80px" alt="Current image"> <small class="text-muted">Current image</small>';
+            } else {
+                imgContainer.innerHTML = '<small class="text-muted">Current file: ' + filename + '</small>';
+            }
+        } else {
+            imgContainer.innerHTML = '';
+        }
+    });
+
+    // Asset preview modal
+    var assetPreviewModal = document.getElementById('assetPreviewModal');
+    assetPreviewModal.addEventListener('show.bs.modal', function (event) {
+        var btn = event.relatedTarget;
+        var filename = btn.getAttribute('data-filename');
+        var name = btn.getAttribute('data-name');
+        var ext = filename ? filename.split('.').pop().toLowerCase() : '';
+        var url = '/static/uploads/' + filename;
+
+        document.getElementById('assetPreviewModalLabel').textContent = name || 'Asset Preview';
+        document.getElementById('assetPreviewFullLink').href = url;
+
+        var body = document.getElementById('assetPreviewBody');
+        if (['jpg','jpeg','png','gif','webp'].indexOf(ext) !== -1) {
+            body.innerHTML = '<img src="' + url + '" class="img-fluid rounded shadow-sm" style="max-height:70vh" alt="Preview">';
+        } else {
+            body.innerHTML = '<p class="text-muted py-4">Preview not available for this file type.</p>';
+        }
+    });
+    assetPreviewModal.addEventListener('hidden.bs.modal', function () {
+        document.getElementById('assetPreviewBody').innerHTML = '';
+    });
 </script>
 
 {% endblock %}

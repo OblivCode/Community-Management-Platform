@@ -2,7 +2,7 @@
 
 from flask import has_request_context, session
 from sqlalchemy import event, inspect, text
-from models import ActionLog, Asset, Document, Transaction, User
+from .models import ActionLog, Asset, Document, Transaction, User
 from datetime import datetime
 
 # Helpers

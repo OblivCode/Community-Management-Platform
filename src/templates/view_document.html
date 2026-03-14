@@ -18,10 +18,25 @@
             </div>
             <p><strong>ID:</strong> {{ document.id}}</p>
             <p><strong>Note:</strong><input value="{{ document.note }}" class="form-control" name="document_note" required></p>
-            <p><strong>Uploaded by:</strong> {{ document.uploaded_by }}</p>
+            <p><strong>Uploaded by:</strong> {{ document.uploader.username }} [{{ document.uploaded_by }}]</p>
             <p><strong>Uploaded on:</strong> {{ document.timestamp.strftime('%d-%m-%Y') }}</p>
             <hr>
-            <img src="{{ document.filename }}" class="img-fluid" alt="Document">
+            {% set ext = document.filename.rsplit('.', 1)[-1].lower() if '.' in document.filename else '' %}
+            {% if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'] %}
+                <img src="{{ url_for('static', filename='uploads/' + document.filename) }}"
+                     class="img-fluid rounded shadow-sm mb-3" alt="Document image" style="max-height:600px">
+            {% elif ext == 'pdf' %}
+                <embed src="{{ url_for('static', filename='uploads/' + document.filename) }}"
+                       type="application/pdf" width="100%" height="600px" class="mb-3">
+            {% else %}
+                <p class="text-muted">Preview not available for this file type.</p>
+            {% endif %}
+            <div class="mt-2">
+                <a href="{{ url_for('static', filename='uploads/' + document.filename) }}"
+                   target="_blank" rel="noopener noreferrer" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-up-right-square"></i> Open Full Image / File
+                </a>
+            </div>
         </form>
     </div>
 </div>

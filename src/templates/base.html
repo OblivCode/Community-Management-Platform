@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="{{ session.get('theme', 'light') }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -24,6 +24,33 @@
         .nav-link.active {
             font-weight: bold;
             background-color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* Dark mode overrides */
+        [data-bs-theme="dark"] body {
+            background-color: #18181b; /* Very dark grey for background */
+            color: #dee2e6;
+        }
+        [data-bs-theme="dark"] .sidebar {
+            background-color: #062c69; /* Dark blue */
+        }
+        [data-bs-theme="dark"] .card {
+            background-color: #212529; /* Standard dark grey for cards to create depth */
+            color: #dee2e6;
+        }
+        /* Override utility classes in dark mode to prevent white headers */
+        [data-bs-theme="dark"] .bg-white {
+            background-color: #212529 !important;
+            color: #dee2e6;
+        }
+        [data-bs-theme="dark"] .bg-light {
+            background-color: #2b3035 !important; /* Slightly lighter shade */
+            color: #dee2e6;
+        }
+        /* Ensure text-dark becomes light when inside elements we forced to be dark */
+        [data-bs-theme="dark"] .bg-light .text-dark,
+        [data-bs-theme="dark"] .bg-white .text-dark {
+            color: #dee2e6 !important;
         }
     </style>
 </head>
@@ -81,6 +108,18 @@
                     </select>
                 </form>
             </div>
+
+            <!-- UI Display Currency -->
+            <div class="mt-3">
+                <form action="/set_ui_currency" method="POST">
+                    <label for="sidebar-ui-currency" class="form-label text-white small">Display Currency</label>
+                    <select id="sidebar-ui-currency" name="ui_currency" class="form-select form-select-sm" onchange="this.form.submit()">
+                        {% for code, symbol in currency_symbols.items() %}
+                        <option value="{{ code }}" {% if code == ui_currency_code %}selected{% endif %}>{{ code }} ({{ symbol }})</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
         </div>
 
        <div class="col-md-9 col-lg-10 p-5">
@@ -106,6 +145,10 @@
         {% endwith %}
 
         {% block content %}{% endblock %}
+
+        <footer class="mt-5 pt-3 border-top">
+            <p class="text-muted small mb-0">Exchange rates powered by <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer">Exchange Rate API</a></p>
+        </footer>
         </div>
     </div>
 </div>
