@@ -2,7 +2,6 @@ import datetime
 import os
 import requests as http_requests
 from flask import Flask, jsonify, render_template, request, session, redirect, flash
-from flask_migrate import Migrate, upgrade
 from werkzeug.utils import secure_filename
 from .auth import validateUser
 from .models import ActionLog, AssetStatus, Document, Setting, Transaction, db, User, Budget, Asset
@@ -33,7 +32,6 @@ def save_upload(file) -> str | None:
     return None
 
 db.init_app(app)
-migrate = Migrate(app, db)
 
 # Supported currencies: code -> symbol
 CURRENCY_SYMBOLS = {
@@ -633,8 +631,8 @@ def budget_set_currency():
 
 def setup_database():
     with app.app_context():
-        # 1. Apply any pending migrations (replaces bare db.create_all)
-        upgrade(directory=os.path.join(basedir, 'migrations'))
+        # 1. Create all tables if they don't exist
+        db.create_all()
 
         # 2. Load persisted settings
         row = Setting.query.filter_by(key='currency_code').first()
@@ -665,7 +663,7 @@ def setup_database():
 def main():
     setup_database()
     from . import audit # Register audit listeners
-    app.run()
+    app.run(host='0.0.0.0', port=5000)
 
 if __name__ == '__main__':
     main()

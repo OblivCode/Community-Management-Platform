@@ -5,3 +5,5 @@ __pycache__/
 
 
 docs/FYP Template Doc.pdf
+
+.pytest_cache/
