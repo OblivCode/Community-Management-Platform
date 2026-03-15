@@ -3,22 +3,13 @@ import os
 import requests as http_requests
 from flask import Flask, jsonify, render_template, request, session, redirect, flash
 from werkzeug.utils import secure_filename
-from .auth import validateUser
+from .auth import validate_user, check_authentication
 from .models import ActionLog, AssetStatus, Document, Setting, Transaction, db, User, Budget, Asset
+from .routes.auth_routes import auth_bp
+
 
 app = Flask(__name__)
 
-# Configure session to expire on browser close
-app.config["SESSION_PERMANENT"] = False
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
-
-basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'data', 'cmp.db')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
 
 def allowed_file(filename: str) -> bool:
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -31,7 +22,7 @@ def save_upload(file) -> str | None:
         return filename
     return None
 
-db.init_app(app)
+
 
 # Supported currencies: code -> symbol
 CURRENCY_SYMBOLS = {
@@ -97,48 +88,12 @@ def inject_budget_year():
 # TODO: implement settings and map currency symbol and budget health threshold
 budget_health_threshold = 0.2 # 20%
 
-def check_authentication():
-    if not session.get("username"):
-        return False
-
-    user = User.query.filter_by(username=session["username"]).first()
-    if not user or user.password != session.get("password"):
-        return False
-    
-    return True
 
 
-@app.route('/', methods=['GET', 'POST'])
-@app.route('/login', methods=['GET', 'POST'])
-def login():  
-    if request.method == "POST":
-        # Check if session exists, else get from form
-        if check_authentication():
-            username = session["username"]
-            password = session["password"]
-        else:
-            username = request.form.get("username")
-            password = request.form.get("password")
-        
-        valid = validateUser(username, password)
-
-        if valid:
-            session["username"] = username
-            session["password"] = password
-            session["budget_year"] = str(datetime.datetime.now().year)
-            return redirect("/dashboard")
-        else:
-            flash("Invalid username or password", "error")
-            return render_template('login.html')
-    elif request.method == "GET":
-        if check_authentication():
-            return redirect("/dashboard")
-        return render_template('login.html')
-    
-@app.route('/logout')
-def logout():
-    session.clear()
+@app.route('/')
+def index():
     return redirect('/login')
+
 
 # Dashboard Route
 @app.route('/dashboard')
@@ -660,9 +615,31 @@ def setup_database():
             db.session.commit()
             print("✅ Database initialized with Users: Jay (Treasurer) & Skipper (Captain)")
 
+
+
 def main():
+    
+    
+
+    # Configure session to expire on browser close
+    app.config["SESSION_PERMANENT"] = False
+    app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
+    
+    # Configure database
+    basedir = os.path.abspath(os.path.dirname(__file__))
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'data', 'cmp.db')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db.init_app(app)
     setup_database()
     from . import audit # Register audit listeners
+
+    # Configure image uploads
+    UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
+
+    # Register blueprints
+    app.register_blueprint(auth_bp, url_prefix='')
     app.run(host='0.0.0.0', port=5000)
 
 if __name__ == '__main__':
