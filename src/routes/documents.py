@@ -1,7 +1,7 @@
 import datetime
 from flask import Blueprint, render_template, redirect, request, flash, session
 from ..auth import check_authentication
-from ..models import Document, User, db
+from ..models import Document, Transaction, User, db
 
 documents_bp = Blueprint('documents', __name__)
 
@@ -9,9 +9,11 @@ documents_bp = Blueprint('documents', __name__)
 def documents_get():
     if not check_authentication():
         return redirect("/login")
-    
+
     documents = Document.query.all()
-    return render_template('documents.html', documents=documents, username=session["username"])
+    # Count linked transactions for each document
+    doc_transaction_counts = {doc.id: Transaction.query.filter_by(document_id=doc.id).count() for doc in documents}
+    return render_template('documents.html', documents=documents, doc_transaction_counts=doc_transaction_counts, username=session["username"])
 
 
 @documents_bp.route('/documents/<int:id>', methods=['GET'])
@@ -66,9 +68,11 @@ def documents_post_delete(id):
 
     document = Document.query.get(id)
     if document:
+        # Clear document_id from any linked transactions
+        Transaction.query.filter_by(document_id=id).update({'document_id': None})
         db.session.delete(document)
         db.session.commit()
-        flash("Document deleted successfully.", "success")
+        flash("Document deleted successfully. Linked transactions updated.", "success")
     else:
         flash("Document not found.", "error")
     return redirect("/documents")

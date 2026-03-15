@@ -94,16 +94,7 @@ def setup_database():
             db.session.commit()
             print("✅ Database initialized with Users: Jay (Treasurer) & Skipper (Captain)")
 
-
-
-def main():
-
-
-
-    # Configure session to expire on browser close
-    app.config["SESSION_PERMANENT"] = False
-    app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
-
+def configure_db():
     # Configure database
     basedir = os.path.abspath(os.path.dirname(__file__))
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'data', 'cmp.db')
@@ -111,6 +102,11 @@ def main():
     db.init_app(app)
     setup_database()
     from . import audit # Register audit listeners
+
+def main():
+    # Configure session to expire on browser close
+    app.config["SESSION_PERMANENT"] = False
+    app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
 
     # Ensure upload folder exists
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)

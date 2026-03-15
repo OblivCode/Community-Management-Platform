@@ -1,0 +1,31 @@
+name: Automate action
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: clone
+        uses: actions/checkout@v5
+        
+      - name: install python
+        uses:  actions/setup-python@v6
+        with:
+          python-version-file: ".python-version"
+
+      - name: install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          version: "0.10.9"
+          enable-cache: true
+        
+      - name: install dependencies
+        run: uv sync --locked --all-extras --dev
+
+      - name: run tests
+        run: uv run pytest tests

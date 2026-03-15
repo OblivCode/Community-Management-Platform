@@ -1,7 +1,7 @@
 import pytest
-from src.app import app, db
+from src.app import app, db, configure_db
 from src.models import User
-from src.auth import validateUser
+from src.auth import validate_user
 
 
 test_username = "testuser"
@@ -12,6 +12,7 @@ def test_app():
     print("Setting up auth test.")
 
     with app.app_context():
+        configure_db()
         db.create_all()
 
         # Test user
@@ -28,8 +29,8 @@ def test_app():
 class TestAuth:
     def test_validateUser(self, test_app):
         with app.app_context():
-            from src.auth import validateUser
-            assert validateUser(test_username, test_password) is not None
+            from src.auth import validate_user
+            assert validate_user(test_username, test_password) is not None
 
     
 
