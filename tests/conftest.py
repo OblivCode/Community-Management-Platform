@@ -1,5 +1,5 @@
 import pytest
-from src.app import app, db, configure_db
+from src.app import db, create_app
 from src.models import User
 
 @pytest.fixture
@@ -16,14 +16,13 @@ def test_app():
     """Create and configure app instance for each test."""
 
     print("Setting up app instance test.")
-    app.config.update({
+    app = create_app({
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", 
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
     })
 
     with app.app_context():
-        configure_db()
         db.create_all()
 
         yield app

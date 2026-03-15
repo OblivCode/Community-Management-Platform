@@ -60,7 +60,7 @@ def create_app(config=None):
     # Configuration
     basedir = os.path.abspath(os.path.dirname(__file__))
     app.config.update({
-        "TESTING": True,
+        "TESTING": False,
         "SQLALCHEMY_DATABASE_URI": 'sqlite:///' + os.path.join(basedir, 'data', 'cmp.db'),
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
     })
