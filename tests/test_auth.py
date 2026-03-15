@@ -1,34 +1,17 @@
 import pytest
-from src.app import app, db, configure_db
-from src.models import User
+from src.app import app
 from src.auth import validate_user
 
 
-test_username = "testuser"
-test_password = "testpassword"
-
-@pytest.fixture
-def test_app():
-    print("Setting up auth test.")
-
-    with app.app_context():
-        configure_db()
-        db.create_all()
-
-        # Test user
-        user = User(username=test_username, password=test_password, role="Captain")
-        db.session.add(user)
-        db.session.commit()
-
-        yield app
-
-        print("Tests done. Cleaning up.")
-        db.session.remove()
-        db.drop_all()
-
 class TestAuth:
-    def test_validateUser(self, test_app):
+    def test_validate_user(self, test_app, create_user):
         with app.app_context():
+            # Create user
+            test_username = "testuser"
+            test_password = "testpassword"
+            create_user(test_username, test_password, "user")
+            
+            # Validate the user exists and authenticates
             from src.auth import validate_user
             assert validate_user(test_username, test_password) is not None
 
