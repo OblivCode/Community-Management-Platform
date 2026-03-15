@@ -1,11 +1,12 @@
 import datetime
 import os
-import requests as http_requests
 from flask import Flask, jsonify, render_template, request, session, redirect, flash
 from werkzeug.utils import secure_filename
 from .auth import validate_user, check_authentication
 from .models import ActionLog, AssetStatus, Document, Setting, Transaction, db, User, Budget, Asset
 from .routes import auth_bp, dashboard_bp
+from .utils import CURRENCY_SYMBOLS, app_settings, budget_health_threshold
+from .services import get_exchange_rate
 
 
 app = Flask(__name__)
@@ -22,45 +23,6 @@ def save_upload(file) -> str | None:
         return filename
     return None
 
-
-
-# Supported currencies: code -> symbol
-CURRENCY_SYMBOLS = {
-    'GBP': '£',
-    'USD': '$',
-    'EUR': '€',
-    'AUD': 'A$',
-    'CAD': 'C$',
-    'JPY': '¥',
-    'INR': '₹',
-}
-
-# Global settings (loaded from DB at startup)
-app_settings = {
-    "currency_code": "GBP",
-    "currency": "£",
-}
-
-# Exchange rate cache: {base_code: {"rates": {...}, "fetched_at": datetime}}
-_exchange_cache: dict = {}
-
-def get_exchange_rate(from_code: str, to_code: str) -> float:
-    """Return exchange rate from_code -> to_code using open.er-api.com. Cached for 1 hour."""
-    if from_code == to_code:
-        return 1.0
-    now = datetime.datetime.utcnow()
-    cache = _exchange_cache.get(from_code)
-    if not cache or (now - cache['fetched_at']).total_seconds() > 3600:
-        try:
-            resp = http_requests.get(f'https://open.er-api.com/v6/latest/{from_code}', timeout=5)
-            data = resp.json()
-            if data.get('result') == 'success':
-                _exchange_cache[from_code] = {'rates': data['rates'], 'fetched_at': now}
-        except Exception as e:
-            print(f'[EXCHANGE] Rate fetch failed: {e}')
-            return 1.0
-    rates = _exchange_cache.get(from_code, {}).get('rates', {})
-    return rates.get(to_code, 1.0)
 
 @app.context_processor
 def inject_budget_year():
