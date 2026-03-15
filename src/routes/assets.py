@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, render_template, redirect, request, flash
 
 from ..auth import check_authentication
 from ..models import Asset, AssetStatus, db
+from ..utils import save_upload
 
 assets_bp = Blueprint('assets', __name__)
 
@@ -10,7 +11,7 @@ assets_bp = Blueprint('assets', __name__)
 def assets_get(id=None):
     if not check_authentication():
         return redirect("/login")
-    
+
     if id:
         # Get specific asset
         asset = Asset.query.get(id)
@@ -32,10 +33,7 @@ def assets_get(id=None):
 def assets_post(operation=None):
     if not check_authentication():
         return redirect("/login")
-    
-    # Import here to avoid circular imports
-    from ..app import save_upload
-    
+
     # "add", "update", "delete"
     if operation == "add":
         name = request.form.get("name")

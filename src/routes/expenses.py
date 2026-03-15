@@ -65,20 +65,22 @@ def expenses_post():
     if not check_authentication():
         return redirect("/login")
 
-    # Import here to avoid circular imports
-    from ..app import save_upload
+    from ..utils import save_upload
 
     # Get form data
     timestamp = datetime.datetime.now()
     note = request.form.get("note") or ""
     category = request.form.get("category") or "Uncategorized"
-    cost = float(request.form.get("cost") or 0.0) 
-    budget_id = int(request.form.get("budget_id")) # Mandatory
-    user = User.query.filter_by(username=session["username"]).first() # Mandatory
+    cost = float(request.form.get("cost") or 0.0)
+    budget_id_str = request.form.get("budget_id")
+    user = User.query.filter_by(username=session["username"]).first()
 
-    if not user or not budget_id:
-        flash("Missing required fields.", "error")
+    # Check for missing or invalid budget_id (including string "None")
+    if not user or not budget_id_str or budget_id_str == "None":
+        flash("Missing required fields. Please ensure a budget exists for the selected year.", "error")
         return redirect("/expenses")
+
+    budget_id = int(budget_id_str)
 
     currency_code = request.form.get("currency_code") or app_settings['currency_code']
     if currency_code not in CURRENCY_SYMBOLS:
@@ -172,8 +174,7 @@ def expenses_link_document(transaction_id):
     if not check_authentication():
         return redirect("/login")
 
-    # Import here to avoid circular imports
-    from ..app import save_upload
+    from ..utils import save_upload
 
     transaction = Transaction.query.get(transaction_id)
     if not transaction:

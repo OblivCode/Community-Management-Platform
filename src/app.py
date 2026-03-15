@@ -1,27 +1,14 @@
 import datetime
 import os
 from flask import Flask, jsonify, render_template, request, session, redirect, flash
-from werkzeug.utils import secure_filename
 from .auth import validate_user, check_authentication
 from .models import ActionLog, AssetStatus, Document, Setting, Transaction, db, User, Budget, Asset
 from .routes import auth_bp, dashboard_bp, settings_bp, assets_bp, expenses_bp, documents_bp
-from .utils import CURRENCY_SYMBOLS, app_settings, budget_health_threshold
+from .utils import CURRENCY_SYMBOLS, UPLOAD_FOLDER, app_settings, budget_health_threshold
 from .services import get_exchange_rate
 
 
 app = Flask(__name__)
-
-
-def allowed_file(filename: str) -> bool:
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def save_upload(file) -> str | None:
-    """Save an uploaded file to UPLOAD_FOLDER. Returns the filename or None on failure."""
-    if file and file.filename and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(UPLOAD_FOLDER, filename))
-        return filename
-    return None
 
 
 @app.context_processor
@@ -33,6 +20,8 @@ def inject_budget_year():
     # UI display currency (session-based, does not touch DB)
     ui_currency_code = session.get('ui_currency', app_settings['currency_code'])
     ui_currency_symbol = CURRENCY_SYMBOLS.get(ui_currency_code, '£')
+    # Check if budget exists for the selected year 
+    budget_exists = Budget.query.filter_by(year=budget_year).first() is not None
     return dict(
         budget_year=budget_year,
         available_years=available_years,
@@ -42,7 +31,26 @@ def inject_budget_year():
         currency_symbols=CURRENCY_SYMBOLS,
         ui_currency_code=ui_currency_code,
         ui_currency_symbol=ui_currency_symbol,
+        budget_exists=budget_exists,
     )
+
+
+# Routes that require a valid budget for POST operations
+BUDGET_REQUIRED_POST_ROUTES = {'/expenses', '/assets/add', '/documents'}
+
+
+@app.before_request
+def check_budget_for_post():
+    """Block POST requests to budget-dependent routes when no budget exists."""
+    if request.method == 'POST' and check_authentication():
+        # Check if this route requires a budget
+        path = request.path.rstrip('/')
+        if path in BUDGET_REQUIRED_POST_ROUTES or path.startswith('/assets/') and path.endswith('/add'):
+            budget_year = session.get("budget_year", str(datetime.datetime.now().year))
+            if not Budget.query.filter_by(year=budget_year).first():
+                flash(f"Cannot perform action: No budget exists for year {budget_year}.", "error")
+                # Redirect back to the referring page or a safe default
+                return redirect(request.referrer or '/dashboard')
 
 
 # TODO: Develop recent activity log for actions like asset updates, document uploads, etc.
@@ -89,13 +97,13 @@ def setup_database():
 
 
 def main():
-    
-    
+
+
 
     # Configure session to expire on browser close
     app.config["SESSION_PERMANENT"] = False
     app.secret_key = os.environ.get('FLASK_SECRET_KEY', os.urandom(24))
-    
+
     # Configure database
     basedir = os.path.abspath(os.path.dirname(__file__))
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'data', 'cmp.db')
@@ -104,10 +112,8 @@ def main():
     setup_database()
     from . import audit # Register audit listeners
 
-    # Configure image uploads
-    UPLOAD_FOLDER = os.path.join(basedir, 'static', 'uploads')
+    # Ensure upload folder exists
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'pdf'}
 
     # Register blueprints
     app.register_blueprint(auth_bp)

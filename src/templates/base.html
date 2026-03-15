@@ -123,6 +123,13 @@
         </div>
 
        <div class="col-md-9 col-lg-10 p-5">
+        {% if not budget_exists %}
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <strong>No budget found for {{ budget_year }}.</strong> Please select a different year or create a budget in Settings.
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        {% endif %}
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}

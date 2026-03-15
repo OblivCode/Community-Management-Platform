@@ -31,10 +31,9 @@ def documents_get_view(id):
 def documents_post():
     if not check_authentication():
         return redirect("/login")
-    
-    # Import here to avoid circular imports
-    from ..app import save_upload
-    
+
+    from ..utils import save_upload
+
     # Get form data
     file = request.files.get("document_file")
     note = request.form.get("document_note") or (file.filename if file else "")
