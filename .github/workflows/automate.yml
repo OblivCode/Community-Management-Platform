@@ -6,6 +6,7 @@ on:
       - main
       - develop
 
+
 jobs:
   pytests:
     runs-on: ubuntu-latest
@@ -29,3 +30,28 @@ jobs:
 
       - name: run tests
         run: uv run pytest tests
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: pytests
+
+    if: github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: clone
+        uses: actions/checkout@v5
+      
+      - name: login github registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: build docker
+        run: docker compose build
+
+      - name: push docker
+        run: docker compose push
+
+

@@ -8,3 +8,24 @@ docs/FYP Template Doc.pdf
 plans/
 
 .pytest_cache/
+
+# Ignore secret variables files
+*.tfvars
+*.tfvars.json
+
+# Ignore override files used locally
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Local .terraform directories
+**/.terraform/*
+
+# Crash log files
+crash.log
+crash.*.log
