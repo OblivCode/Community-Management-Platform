@@ -31,7 +31,7 @@ jobs:
       - name: run tests
         run: uv run pytest tests
 
-  docker-build:
+  docker-build-test:
     runs-on: ubuntu-latest
     needs: pytests
 
@@ -45,14 +45,7 @@ jobs:
       - name: clone
         uses: actions/checkout@v5
       
-      - name: login github registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: push docker
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:${{ github.sha }}
+      - name: build
+        run: docker compose build
 
 
