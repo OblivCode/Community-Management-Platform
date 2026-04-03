@@ -10,8 +10,14 @@
     </div>
 </div>
 
-<table class="table table-striped table-hover">
-    <thead class="table-dark">
+<div class="card shadow-sm">
+    <div class="card-header bg-white">
+        <h5 class="mb-0">Asset List</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
         <tr>
             <th scope="col">Name</th>
             <th scope="col">Location</th>
@@ -81,7 +87,10 @@
         </tr>
         {% endfor %}
     </tbody>
-</table>
+            </table>
+        </div>
+    </div>
+</div>
 
 <!-- Add Asset Modal -->
 <div class="modal fade" id="addAssetModal" tabindex="-1" aria-labelledby="addAssetModalLabel" aria-hidden="true">

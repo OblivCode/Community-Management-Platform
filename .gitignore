@@ -3,11 +3,24 @@ __pycache__/
 *.py[cod]
 *.pyc
 
+# Virtual Environment
+.venv/
+env/
+venv/
+ENV/
+
+# Database
+src/data/cmp.db
+*.db
+
+# Artifacts/Temp
+pytest_output.txt
+.pytest_cache/
+.coverage
+htmlcov/
 
 docs/FYP Template Doc.pdf
 plans/
-
-.pytest_cache/
 
 # Ignore secret variables files
 *.tfvars

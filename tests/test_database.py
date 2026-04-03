@@ -1,6 +1,6 @@
 import pytest
 from datetime import datetime
-from src.models import User, Budget, Asset, Transaction, Document, Setting, AssetStatus, db
+from src.models import User, Budget, Asset, Transaction, Document, Setting, AssetStatus, Event, db
 
 
 class TestDatabase:
@@ -188,5 +188,34 @@ class TestDatabase:
             db.session.add(setting2)
             
             # Validate that commit raises an error
+            with pytest.raises(Exception):
+                db.session.commit()
+
+    # Events
+    def test_event_create(self, test_app):
+        """Validate that an event is created."""
+        with test_app.app_context():
+            from datetime import datetime
+            
+            # Create event
+            event = Event(title="Test Event", description="This is a test event", date=datetime.now())
+            db.session.add(event)
+            db.session.commit()
+
+            # Validate the event was created
+            assert event.id is not None
+            assert event.title == "Test Event"
+            assert event.description == "This is a test event"
+
+    def test_event_missing_title(self, test_app):
+        """Validate that an event without a title fails."""
+        with test_app.app_context():
+            from datetime import datetime
+            
+            # Create event missing a title
+            event = Event(description="No title event", date=datetime.now())
+            db.session.add(event)
+            
+            # Validate that commit raises an error because title is not null
             with pytest.raises(Exception):
                 db.session.commit()

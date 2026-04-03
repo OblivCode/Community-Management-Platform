@@ -3,8 +3,8 @@ from flask import Flask, jsonify, render_template, request, session, redirect, f
 from werkzeug.security import generate_password_hash
 from .auth import validate_user, check_authentication
 from .models import ActionLog, AssetStatus, Document, Setting, Transaction, db, User, Budget, Asset
-from .routes import auth_bp, dashboard_bp, settings_bp, assets_bp, expenses_bp, documents_bp
-from .utils import CURRENCY_SYMBOLS, UPLOAD_FOLDER, DATABASE_FOLDER, app_settings, budget_health_threshold
+from .routes import auth_bp, dashboard_bp, settings_bp, assets_bp, expenses_bp, documents_bp, events_bp
+from .utils import CURRENCY_SYMBOLS, UPLOAD_FOLDER, DATABASE_FOLDER, get_currency_code, get_currency_symbol, budget_health_threshold
 from .services import get_exchange_rate
 
 
@@ -23,37 +23,69 @@ def setup_database(app):
         db.create_all()
 
         # 2. Load persisted settings
-        row = Setting.query.filter_by(key='currency_code').first()
-        if row and row.value in CURRENCY_SYMBOLS:
-            app_settings['currency_code'] = row.value
-            app_settings['currency'] = CURRENCY_SYMBOLS[row.value]
+        pass
 
         # 3. Check if we need to seed a Test User
         if app.config.get('TESTING', False):
-            print("⚡ Creating Test Data...")
+            print("Creating Test Data...")
 
             # Create Users
-            if not User.query.filter_by(username='Jay').first():
+            jay = User.query.filter_by(username='Jay').first()
+            if not jay:
                 jay = User(username='Jay', password=generate_password_hash('password123'), role='Treasurer')
                 db.session.add(jay)
 
-            if not User.query.filter_by(username='Skipper').first():
-                skipper = User(username='Skipper', password=generate_password_hash('123'), role='Captain')#
+            skipper = User.query.filter_by(username='Skipper').first()
+            if not skipper:
+                skipper = User(username='Skipper', password=generate_password_hash('123'), role='Captain')
                 db.session.add(skipper)
 
             # Create randomized budgets for last 4 years
             years = ['2026', '2025', '2024', '2023']
             fund_range = [1500, 1800]
+            budget_2026 = None
 
             for year in years:
-                if not Budget.query.filter_by(year=year).first():
+                b = Budget.query.filter_by(year=year).first()
+                if not b:
                     total_fund = random.randrange(fund_range[0], fund_range[1])
-                    budget = Budget(year=year, total_fund=total_fund, remaining_fund=total_fund)
-                    db.session.add(budget)
+                    b = Budget(year=year, total_fund=total_fund, remaining_fund=total_fund)
+                    db.session.add(b)
+                if year == str(datetime.datetime.now().year):
+                    budget_2026 = b
+                    
+            db.session.commit()
+            
+            # Prefill additional data if 2026 budget exists and no assets exist
+            if budget_2026 and Asset.query.count() == 0:
+                from .models import AssetStatus, Event, Document, Transaction
+                
+                # Assets
+                asset1 = Asset(name='Match Balls (Pack of 10)', location='Storage Unit A', status=AssetStatus.FINE, count=2)
+                asset2 = Asset(name='Training Bibs (Blue)', location='Locker Room', status=AssetStatus.DAMAGED, count=15)
+                db.session.add_all([asset1, asset2])
+                
+                # Event
+                event1 = Event(title='Season Opener Match', description='First game of the league', date=datetime.datetime.now() - datetime.timedelta(days=5))
+                event2 = Event(title='Pub Crawl Social', description='Post-training mingle', date=datetime.datetime.now() + datetime.timedelta(days=10))
+                db.session.add_all([event1, event2])
+                
+                # Document
+                doc1 = Document(note='Invoice for Match Balls', filename='balls_invoice.pdf', timestamp=datetime.datetime.now(), uploaded_by=jay.id)
+                db.session.add(doc1)
+                db.session.flush() # flush to get IDs for linking
+                
+                # Transactions
+                txn1 = Transaction(cost=45.50, currency='GBP', note='Ordered match balls', timestamp=datetime.datetime.now() - datetime.timedelta(days=7), category='Equipment', author=jay.id, budget_id=budget_2026.id, document_id=doc1.id, asset_id=asset1.id)
+                txn2 = Transaction(cost=120.00, currency='GBP', note='League entry fee', timestamp=datetime.datetime.now() - datetime.timedelta(days=14), category='Fees', author=jay.id, budget_id=budget_2026.id)
+                db.session.add_all([txn1, txn2])
+                
+                # Adjust remaining fund for budget
+                budget_2026.remaining_fund = budget_2026.total_fund - (txn1.cost + txn2.cost)
 
             # Commit to Database
             db.session.commit()
-            print("✅ Database initialized with Users: Jay (Treasurer) & Skipper (Captain)")
+            print("Database initialized with Users and dummy test data.")
 
 def create_app(config=None):
     app = Flask(__name__)
@@ -61,7 +93,7 @@ def create_app(config=None):
     # Configuration
     basedir = os.path.abspath(os.path.dirname(__file__))
     app.config.update({
-        "TESTING": False,
+        "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": 'sqlite:///' + os.path.join(basedir, 'data', 'cmp.db'),
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
     })
@@ -81,6 +113,7 @@ def create_app(config=None):
     app.register_blueprint(assets_bp)
     app.register_blueprint(expenses_bp)
     app.register_blueprint(documents_bp)
+    app.register_blueprint(events_bp)
 
     # Register index page to login
     @app.route('/')
@@ -95,16 +128,16 @@ def create_app(config=None):
         budget_year = session["budget_year"]
         available_years = [str(year) for year in range(datetime.datetime.now().year + 1, 2020, -1)]
         # UI display currency (session-based, does not touch DB)
-        ui_currency_code = session.get('ui_currency', app_settings['currency_code'])
+        ui_currency_code = session.get('ui_currency', get_currency_code())
         ui_currency_symbol = CURRENCY_SYMBOLS.get(ui_currency_code, '£')
         # Check if budget exists for the selected year
         budget_exists = Budget.query.filter_by(year=budget_year).first() is not None
         return dict(
             budget_year=budget_year,
             available_years=available_years,
-            settings=app_settings,
-            currency=app_settings['currency'],
-            currency_code=app_settings['currency_code'],
+            settings={'currency_code': get_currency_code(), 'currency': get_currency_symbol()},
+            currency=get_currency_symbol(),
+            currency_code=get_currency_code(),
             currency_symbols=CURRENCY_SYMBOLS,
             ui_currency_code=ui_currency_code,
             ui_currency_symbol=ui_currency_symbol,

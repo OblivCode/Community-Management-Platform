@@ -7,13 +7,10 @@ from .models import ActionLog, Asset, Document, Transaction, User
 
 # Helpers
 def get_current_user_id():
-    if not has_request_context() or not session.get("username"):
+    if not has_request_context() or not session.get("user_id"):
         return None
 
-    user = User.query.filter_by(username=session.get("username")).first()
-    if user:
-        return user.id
-    return None
+    return session.get("user_id")
 
 
 def get_changed_fields(target) -> dict[str, list]:  # Returns field: (old_value, new_value)
@@ -39,35 +36,28 @@ def get_changed_fields(target) -> dict[str, list]:  # Returns field: (old_value,
 
 # Audit logging
 def log(connection, target, action):
-    # 1. Get current user ID
     user_id = get_current_user_id()
     if not user_id:
-        print(f"[AUDIT] Anonymous user performed '{action}' on record ID {target.id}.")
         return
-
-    # 2. Prepare log entry
+    
     table_name = target.__tablename__
-    target_name = getattr(target, "name", str(target.id))
-    print(f"[AUDIT] User '{user_id}' {action} on '{table_name}' for {target_name} (ID: {target.id})")
+    target_name = getattr(target, 'name', str(target.id))
 
-    # 3. Get changed fields for update action
     if action == "update":
         changes = get_changed_fields(target)
         details = f"Changed {target_name} (ID: {target.id}) on {table_name}s: "
-        # Append each changed field
         for field in changes:
-            values = changes[field]
-            old, new = values
+            old, new = changes[field]
             details += f"{field} from '{old}' to '{new}'; "
     else:
         details = f"{action.capitalize()}d {target_name} (ID: {target.id}) on {table_name}s."
-
-    # 4. Insert into ActionLog table
+    
+    # The new ORM-safe way to insert
     stmt = insert(ActionLog).values(
-        user_id=user_id,
-        action_type=action,
-        details=details,
-        timestamp=datetime.now(),
+        user_id=user_id, 
+        action_type=action, 
+        details=details, 
+        timestamp=datetime.now()
     )
     connection.execute(stmt)
 

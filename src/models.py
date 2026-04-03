@@ -45,6 +45,7 @@ class Transaction(db.Model):
     budget_id = db.Column(db.Integer, db.ForeignKey('budget.id'), nullable=False)
     document_id = db.Column(db.Integer, db.ForeignKey('document.id'), nullable=True) # receipt
     event_id = db.Column(db.Integer, db.ForeignKey('event.id'), nullable=True)
+    asset_id = db.Column(db.Integer, db.ForeignKey('asset.id'), nullable=True)
 
 class Document(db.Model):
     id = db.Column(db.Integer, primary_key=True)

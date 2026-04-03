@@ -2,8 +2,8 @@ import datetime
 from flask import Blueprint, render_template, redirect, request, session, flash
 
 from ..auth import check_authentication
-from ..models import Budget, Document, Transaction, User, db
-from ..utils import CURRENCY_SYMBOLS, app_settings
+from ..models import Budget, Document, Transaction, User, Event, Asset, db
+from ..utils import CURRENCY_SYMBOLS, get_currency_code
 from ..services import get_exchange_rate
 
 expenses_bp = Blueprint('expenses', __name__)
@@ -28,8 +28,8 @@ def expenses_get(year=None):
         flash(f"No budget found for year {year}. Showing empty budget.", "info")
 
     # Determine UI currency and convert budget totals for display
-    ui_code = session.get('ui_currency', app_settings['currency_code'])
-    budget_currency = budget.currency if hasattr(budget, 'currency') and budget.currency else app_settings['currency_code']
+    ui_code = session.get('ui_currency', get_currency_code())
+    budget_currency = budget.currency if hasattr(budget, 'currency') and budget.currency else get_currency_code()
     ui_symbol = CURRENCY_SYMBOLS.get(ui_code, '£')
     ui_rate = get_exchange_rate(budget_currency, ui_code)
     ui_total_fund = round(budget.total_fund * ui_rate, 2)
@@ -43,9 +43,15 @@ def expenses_get(year=None):
 
     # Get all documents for the link receipt modal
     documents = Document.query.all()
+    
+    # Get all events and assets for the dropdowns
+    events = Event.query.order_by(Event.date.desc()).all()
+    assets = Asset.query.all()
 
     return render_template(
         'expenses.html',
+        events=events,
+        assets=assets,
         transactions=transactions,
         budget=budget,
         budget_currency=budget_currency,
@@ -82,14 +88,24 @@ def expenses_post():
 
     budget_id = int(budget_id_str)
 
-    currency_code = request.form.get("currency_code") or app_settings['currency_code']
+    currency_code = request.form.get("currency_code") or get_currency_code()
     if currency_code not in CURRENCY_SYMBOLS:
-        currency_code = app_settings['currency_code']
+        currency_code = get_currency_code()
 
     document_id = request.form.get("document_id") or None
+    event_id = request.form.get("event_id") or None
+    asset_id = request.form.get("asset_id") or None
     receipt_file = request.files.get("receipt_file")
 
-    if receipt_file and receipt_file.filename != "":
+    # If a document ID is provided, use it first
+    if document_id:
+        doc = Document.query.get(document_id)
+        if not doc:
+            flash("Document ID not found.", "error")
+            return redirect("/expenses")
+
+    # If no document ID was provided, but a receipt file was uploaded, create a new document
+    if not document_id and receipt_file and receipt_file.filename != "":
         saved_name = save_upload(receipt_file)
         if saved_name:
             new_doc = Document(
@@ -104,19 +120,20 @@ def expenses_post():
         else:
             flash("Invalid file type for receipt. Allowed: images and PDF.", "warning")
             document_id = None
-    elif document_id:
-        doc = Document.query.get(document_id)
-        if not doc:
-            flash("Document ID not found.", "error")
-            return redirect("/expenses")
+
+    # If the user picked a link type, only keep that matching link
+    if request.form.get("link_type") == "event":
+        asset_id = None
+    elif request.form.get("link_type") == "asset":
+        event_id = None
 
     # Convert cost to budget's own currency for deduction
     budget = Budget.query.get(budget_id)
-    budget_currency = (budget.currency if budget and budget.currency else None) or app_settings['currency_code']
+    budget_currency = (budget.currency if budget and budget.currency else None) or get_currency_code()
     rate = get_exchange_rate(currency_code, budget_currency)
     cost_in_default = round(cost * rate, 2)
 
-    # Create new transaction
+    # Keep the event and asset fields on the transaction
     new_transaction = Transaction(
         cost=cost,
         currency=currency_code,
@@ -126,6 +143,8 @@ def expenses_post():
         author=user.id,
         budget_id=budget_id,
         document_id=document_id,
+        event_id=event_id,
+        asset_id=asset_id,
     )
 
     # Deduct from budget (cost_in_default is already in budget_currency)
@@ -157,7 +176,7 @@ def expenses_delete(id):
         # Refund cost back to budget in budget currency
         budget = transaction.budget
         if budget:
-            budget_currency = budget.currency or app_settings['currency_code']
+            budget_currency = budget.currency or get_currency_code()
             refund_rate = get_exchange_rate(transaction.currency, budget_currency)
             refund = round(transaction.cost * refund_rate, 2)
             budget.remaining_fund = round(budget.remaining_fund + refund, 2)
@@ -185,7 +204,15 @@ def expenses_link_document(transaction_id):
     receipt_file = request.files.get("receipt_file")
     document_id = request.form.get("document_id") or None
 
-    if receipt_file and receipt_file.filename != "":
+    # Prefer an existing document ID if one is chosen
+    if document_id:
+        doc = Document.query.get(document_id)
+        if not doc:
+            flash("Document not found.", "error")
+            return redirect("/expenses")
+
+    # Only create a new receipt document if no document ID was selected
+    if not document_id and receipt_file and receipt_file.filename != "":
         saved_name = save_upload(receipt_file)
         if saved_name:
             new_doc = Document(
@@ -200,12 +227,8 @@ def expenses_link_document(transaction_id):
         else:
             flash("Invalid file type. Allowed: images and PDF.", "warning")
             return redirect("/expenses")
-    elif document_id:
-        doc = Document.query.get(document_id)
-        if not doc:
-            flash("Document not found.", "error")
-            return redirect("/expenses")
-    else:
+
+    if not document_id:
         flash("Please select a document or upload a receipt file.", "error")
         return redirect("/expenses")
 

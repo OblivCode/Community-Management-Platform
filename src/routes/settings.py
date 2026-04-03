@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, request, session, flash
 
 from ..auth import check_authentication
 from ..models import Setting, User, db
-from ..utils import CURRENCY_SYMBOLS, app_settings
+from ..utils import CURRENCY_SYMBOLS, get_currency_code, get_currency_symbol
 
 settings_bp = Blueprint('settings', __name__)
 
@@ -17,8 +17,6 @@ def settings():
         new_code = request.form.get('currency_code', 'GBP')
         if new_code not in CURRENCY_SYMBOLS:
             new_code = 'GBP'
-        app_settings['currency_code'] = new_code
-        app_settings['currency'] = CURRENCY_SYMBOLS[new_code]
         # Persist to Setting table
         row = Setting.query.filter_by(key='currency_code').first()
         if row:
@@ -26,6 +24,10 @@ def settings():
         else:
             db.session.add(Setting(key='currency_code', value=new_code))
         db.session.commit()
+        
+        # update the ui_currency session variable so it reflects instantly!
+        session['ui_currency'] = new_code
+        
         flash("General settings updated.", "success")
         return redirect('/settings')
     
@@ -52,7 +54,7 @@ def set_ui_currency():
     if not check_authentication():
         return redirect("/login")
     
-    code = request.form.get('ui_currency', app_settings['currency_code'])
+    code = request.form.get('ui_currency', get_currency_code())
     if code in CURRENCY_SYMBOLS:
         session['ui_currency'] = code
     return redirect(request.referrer or '/dashboard')

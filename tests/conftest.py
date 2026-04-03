@@ -1,11 +1,12 @@
 import pytest
+from werkzeug.security import generate_password_hash
 from src.app import db, create_app
 from src.models import User
 
 @pytest.fixture
 def create_user():
     def _create_user(username, password, role):
-        user = User(username=username, password=password, role=role)
+        user = User(username=username, password=generate_password_hash(password), role=role)
         db.session.add(user)
         db.session.commit()
         return user

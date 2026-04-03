@@ -5,6 +5,7 @@ from .settings import settings_bp
 from .assets import assets_bp
 from .expenses import expenses_bp
 from .documents import documents_bp
+from .events import events_bp
 
 __all__ = [
     'auth_bp',
@@ -13,4 +14,5 @@ __all__ = [
     'assets_bp',
     'expenses_bp',
     'documents_bp',
+    'events_bp',
 ]

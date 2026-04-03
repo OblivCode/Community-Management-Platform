@@ -26,10 +26,7 @@ ENV UV_NO_DEV=1
 
 # Sync the project into a new environment, asserting the lockfile is up to date
 WORKDIR /app
-RUN uv sync --locked
-
 # 4. Network
-# Expose the port that the application listens on.
 EXPOSE 5000
 
 # 5. Run the application.

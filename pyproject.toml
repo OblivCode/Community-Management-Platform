@@ -7,6 +7,8 @@ requires-python = ">=3.11"
 dependencies = [
     "flask>=3.1.2",
     "flask-sqlalchemy>=3.1.1",
+    "pyte>=0.8.2",
+    "pytest>=9.0.2",
     "requests>=2.32.5",
 ]
 
@@ -26,4 +28,9 @@ addopts = "-v --tb=short"
 markers = [
     "unit: Unit tests for individual functions",
     "slow: Tests that take longer to run",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
 ]

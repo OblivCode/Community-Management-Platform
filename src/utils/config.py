@@ -1,22 +1,21 @@
 import os
 
-from ..models import Setting
+from ..models import Setting, db
 
 # Supported currencies: code -> symbol
 CURRENCY_SYMBOLS = {
-    "GBP": "£",
-    "USD": "$",
-    "EUR": "€",
-    "AUD": "A$",
-    "CAD": "C$",
-    "JPY": "¥",
-    "INR": "₹",
+    'GBP': '£', 'USD': '$', 'EUR': '€', 'AUD': 'A$',
+    'CAD': 'C$', 'JPY': '¥', 'INR': '₹',
 }
+
+def get_currency_code():
+    """Fetches the current currency setting from the DB and returns the code."""
+    setting = Setting.query.filter_by(key="currency_code").first()
+    return setting.value if setting else "GBP"
 
 def get_currency_symbol():
     """Fetches the current currency setting from the DB and returns the symbol."""
-    setting = Setting.query.filter_by(key="currency_code").first()
-    code = setting.value if setting else "GBP"  # Default to GBP if not set
+    code = get_currency_code()
     return CURRENCY_SYMBOLS.get(code, "£")
 
 # Budget health threshold for warnings
