@@ -33,5 +33,4 @@ RUN uv sync --locked
 EXPOSE 5000
 
 # 5. Run the application.
-CMD uv sync
 CMD uv run python -m src.app

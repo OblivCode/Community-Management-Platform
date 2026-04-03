@@ -4,7 +4,7 @@ from ..auth import check_authentication, validate_user
 
 auth_bp = Blueprint('auth', __name__)
 
-# Login 
+# Login
 @auth_bp.route('/login', methods=['GET'])
 def login_get():
     if check_authentication():
@@ -14,19 +14,14 @@ def login_get():
 
 @auth_bp.route('/login', methods=['POST'])
 def login_post():
-# Check if session exists, else get from form
-    if check_authentication():
-        username = session["username"]
-        password = session["password"]
-    else:
-        username = request.form.get("username")
-        password = request.form.get("password")
-        
+    username = request.form.get("username")
+    password = request.form.get("password")
+
     valid = validate_user(username, password)
 
     if valid:
-        session["username"] = username
-        session["password"] = password
+        session.clear() # Always clear the session on a fresh login
+        session["user_id"] = valid.id
         session["budget_year"] = str(datetime.datetime.now().year)
         return redirect("/dashboard")
     else:

@@ -5,4 +5,4 @@ services:
       - "${APP_PORT}:5000"
     volumes:
       - ./src/data:/app/src/data
-    
+      - ./src/static/uploads:/app/src/static/uploads
