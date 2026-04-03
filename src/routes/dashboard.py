@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, redirect, session, flash
 
 from ..auth import check_authentication
 from ..models import Asset, AssetStatus, Budget, Document, Transaction
-from ..utils import CURRENCY_SYMBOLS, app_settings, budget_health_threshold
+from ..utils import CURRENCY_SYMBOLS, budget_health_threshold, get_currency_symbol
 from ..services import get_exchange_rate
 
 dashboard_bp = Blueprint('dashboard', __name__)
@@ -37,9 +37,9 @@ def dashboard():
     recent_transactions = Transaction.query.order_by(Transaction.timestamp.desc()).filter_by(budget_id=budget.id).limit(3).all() if budget.id else []
 
     # E. Convert budget totals and transaction costs to UI display currency
-    ui_code = session.get('ui_currency', app_settings['currency_code'])
-    ui_symbol = CURRENCY_SYMBOLS.get(ui_code, '£')
-    budget_currency = (budget.currency if budget and budget.currency else None) or app_settings['currency_code']
+    ui_code = session.get('ui_currency', get_currency_symbol())
+    ui_symbol = CURRENCY_SYMBOLS.get(ui_code, get_currency_symbol())
+    budget_currency = (budget.currency if budget and budget.currency else None) or ui_code
     budget_rate = get_exchange_rate(budget_currency, ui_code)
     total_budget = round(budget.total_fund * budget_rate, 2)
     remaining_budget = round(budget.remaining_fund * budget_rate, 2)
