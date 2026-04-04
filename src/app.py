@@ -20,6 +20,9 @@ from .services import get_exchange_rate
 def setup_database(app):
     with app.app_context():
         # 1. Create all tables if they don't exist
+        if app.config.get('TESTING', False):
+            # Drop tables to always force a fresh testing database structure on startup
+            db.drop_all()
         db.create_all()
 
         # 2. Load persisted settings
