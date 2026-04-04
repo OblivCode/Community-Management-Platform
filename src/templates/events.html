@@ -28,6 +28,7 @@
                         <th>Date & Time</th>
                         <th>Title</th>
                         <th>Description</th>
+                        <th>Links</th>
                         <th class="text-end">Actions</th>
                     </tr>
                 </thead>
@@ -37,6 +38,15 @@
                         <td>{{ event.date.strftime('%Y-%m-%d %H:%M') if event.date.hour else event.date.strftime('%Y-%m-%d') }}</td>
                         <td class="fw-bold">{{ event.title }}</td>
                         <td class="text-muted">{{ event.description or 'No description provided' }}</td>
+                        <td>
+                            {% if event.transactions|length > 0 %}
+                                <a href="/expenses" class="text-decoration-none">
+                                    <span class="badge bg-secondary">{{ event.transactions|length }} Transaction(s)</span>
+                                </a>
+                            {% else %}
+                                <span class="text-muted small">None</span>
+                            {% endif %}
+                        </td>
                         <td class="text-end">
                             <button class="btn btn-sm btn-outline-primary me-2" 
                                 data-bs-toggle="modal" 

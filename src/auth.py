@@ -1,4 +1,4 @@
-from .models import User
+from .models import User, db
 from flask import session
 from werkzeug.security import check_password_hash
 
@@ -14,7 +14,7 @@ def check_authentication():
     if not session.get("user_id"):
         return False
 
-    user = User.query.get(session.get("user_id"))
+    user = db.session.get(User, session.get("user_id"))
     if not user:
         return False
     

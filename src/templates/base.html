@@ -96,6 +96,51 @@
                 --bs-table-color: var(--text-main);
                 border-color: #3e444a;
             }
+
+            /* Print-specific styles to hide unnecessary UI elements and format the page */
+            @media print {
+                /* Hide base template elements like sidebar and top navigation if present */
+                .sidebar, nav, .navbar {
+                    display: none !important;
+                }
+                
+                /* Ensure the main content area takes full width and resets padding */
+                .container-fluid, .row, .col-md-9, .col-lg-10 {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    flex: 0 0 100% !important;
+                }
+
+                /* Hide action buttons within the form */
+                .no-print {
+                    display: none !important;
+                }
+
+                /* Adjust colors for print (forcing light theme essentially to save ink) */
+                body {
+                    background-color: white !important;
+                    color: black !important;
+                }
+                
+                .card {
+                    border: none !important;
+                    box-shadow: none !important;
+                }
+
+                /* Ensure images fit well */
+                .receipt-image-container img {
+                    max-height: 400px !important;
+                    page-break-inside: avoid;
+                }
+                
+                /* Force background colors on badges/alerts if necessary */
+                * {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+            }
         </style>
     </head>
     <body>

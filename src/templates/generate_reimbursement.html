@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Reimbursement Form{% endblock %}
+
+{% block content %}
+<style>
+    .signature-line {
+        border-bottom: 1px solid #000;
+        width: 80%;
+        margin: 0 auto;
+        margin-top: 50px;
+        margin-bottom: 10px;
+    }
+</style>
+
+<!-- Action Buttons (Hidden when printing) -->
+<div class="d-flex justify-content-between mb-4 no-print">
+    <a href="/expenses" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back to Expenses
+    </a>
+    <button onclick="window.print()" class="btn btn-primary">
+        <i class="bi bi-printer"></i> Generate PDF
+    </button>
+</div>
+
+<!-- Main Printable Container -->
+<div class="card shadow-sm print-container">
+    <div class="card-body p-5">
+        
+        <!-- Header Section -->
+        <div class="row border-bottom pb-4 mb-4">
+            <div class="col-8">
+                <h1 class="h3 fw-bold mb-1">University Cricket Club</h1>
+                <p class="text-muted mb-0">Reimbursement Claim Form</p>
+            </div>
+            <div class="col-4 text-end">
+                <h2 class="h5 mb-1">Ref ID: #{{ transaction.id }}</h2>
+                <p class="text-muted mb-0">Date: {{ transaction.timestamp.strftime('%d %b %Y') }}</p>
+            </div>
+        </div>
+
+        <!-- Claimant Details & Overview -->
+        <div class="row mb-5">
+            <div class="col-md-6">
+                <h5 class="fw-bold">Claimant Details</h5>
+                <p class="mb-1">Name: <strong>{{ transaction.user.username if transaction.user else 'Unknown' }}</strong></p>
+                <!-- Add more user details if available in your User model, e.g. email or bank details -->
+            </div>
+            <div class="col-md-6 text-md-end">
+                <h5 class="fw-bold">Claim Total</h5>
+                <h3 class="fw-bold mb-0 text-dark">{{ transaction.currency }} {{ "%.2f"|format(transaction.cost) }}</h3>
+            </div>
+        </div>
+
+        <!-- Expense Breakdown -->
+        <div class="mb-5">
+            <h5 class="fw-bold mb-3">Expense Details</h5>
+            <table class="table table-bordered align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 20%">Category</th>
+                        <th style="width: 50%">Note / Description</th>
+                        <th style="width: 30%">Linked Event / Asset</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{ transaction.category }}</td>
+                        <td>{{ transaction.note }}</td>
+                        <td>
+                            {% if transaction.event_id and transaction.event %}
+                                Event: {{ transaction.event.title }}
+                            {% elif transaction.asset_id and transaction.asset %}
+                                Asset: {{ transaction.asset.name }}
+                            {% else %}
+                                <span class="text-muted">None</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Receipt Section -->
+        <div class="mb-5 border p-4 bg-light text-center position-relative">
+            <h5 class="fw-bold mb-3 border-bottom pb-2">Original Receipt</h5>
+            <button type="button" class="btn btn-sm btn-outline-secondary position-absolute top-0 end-0 m-3 no-print" onclick="document.getElementById('receipt-visual').classList.toggle('d-none'); document.getElementById('receipt-alt').classList.toggle('d-none');">
+                <i class="bi bi-arrow-repeat"></i> Toggle View
+            </button>
+            
+            {% if transaction.document_id and transaction.document %}
+                {% set ext = transaction.document.filename.rsplit('.', 1)[-1].lower() if '.' in transaction.document.filename else '' %}
+                
+                <div id="receipt-visual">
+                    {% if ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'] %}
+                        <div class="receipt-image-container">
+                            <img src="{{ url_for('static', filename='uploads/' + transaction.document.filename) }}" 
+                                 alt="Attached Receipt" class="img-fluid border shadow-sm" style="max-height: 500px;">
+                        </div>
+                    {% elif ext == 'pdf' %}
+                        <div class="receipt-pdf-container">
+                            <div class="d-print-none">
+                                <embed src="{{ url_for('static', filename='uploads/' + transaction.document.filename) }}" type="application/pdf" width="100%" height="600px" class="mb-3 border shadow-sm">
+                                <p class="small text-muted mt-2">[If PDF does not display properly or you're printing, <a href="{{ url_for('static', filename='uploads/' + transaction.document.filename) }}" target="_blank">click here to open it directly</a>]</p>
+                            </div>
+                            <div class="d-none d-print-block py-3">
+                                <p class="text-primary mb-2"><i class="bi bi-file-earmark-pdf fs-1"></i></p>
+                                <p class="mb-0 fw-bold">Receipt attached as separate PDF document</p>
+                                <p class="text-muted small">Please staple or attach the printed PDF receipt to this form.</p>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="mb-0"><strong>Receipt Attached</strong></p>
+                        <p class="small text-muted">[File type not viewable inline: {{ ext }}]</p>
+                    {% endif %}
+                </div>
+                
+                <div id="receipt-alt" class="d-none py-4">
+                    <p class="text-primary mb-2"><i class="bi bi-paperclip fs-1"></i></p>
+                    <p class="mb-0 fw-bold">Receipt attached separately</p>
+                    <p class="text-muted small">Please staple or attach the printed receipt to this form.</p>
+                </div>
+                
+                <p class="small text-muted mt-3 mb-0">Document ID: {{ transaction.document_id }}</p>
+
+            {% else %}
+                <div class="py-4">
+                    <h4 class="text-danger fw-bold border border-danger d-inline-block px-4 py-2 bg-white">
+                        [ NO RECEIPT ATTACHED ]
+                    </h4>
+                    <p class="text-muted mt-3 mb-0">This transaction was submitted without a linked receipt.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Signatures Area -->
+        <div class="row mt-5 pt-4 page-break-inside-avoid">
+            <div class="col-6 text-center">
+                <div class="signature-line"></div>
+                <strong>Claimant Signature</strong>
+                <div class="text-muted small mt-1">Date: ____/____/______</div>
+            </div>
+            <div class="col-6 text-center">
+                <div class="signature-line"></div>
+                <strong>Treasurer / Exec Signature</strong>
+                <div class="text-muted small mt-1">Date: ____/____/______</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

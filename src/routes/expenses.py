@@ -171,7 +171,7 @@ def expenses_delete(id):
     if not check_authentication():
         return redirect("/login")
 
-    transaction = Transaction.query.get(id)
+    transaction = db.session.get(Transaction, id)
     if transaction:
         # Refund cost back to budget in budget currency
         budget = transaction.budget
@@ -251,8 +251,48 @@ def budget_set_currency():
             budget.currency = new_currency
             db.session.commit()
             flash(f"Budget currency set to {new_currency}.", "success")
-        else:
-            flash("Budget not found.", "error")
     else:
         flash("Invalid currency selection.", "error")
     return redirect("/expenses")
+
+
+@expenses_bp.route('/expenses/<int:id>/reimbursement', methods=['GET'])
+def expenses_reimbursement(id):
+    if not check_authentication():
+        return redirect("/login")
+        
+    transaction = db.session.get(Transaction, id)
+    if not transaction:
+        flash("Transaction not found.", "error")
+        return redirect("/expenses")
+        
+    # Validation logic updated: we now allow transactions to load but handle them in the template
+    return render_template('generate_reimbursement.html', transaction=transaction, username=session["username"])
+
+@expenses_bp.route('/expenses/<year>/summary', methods=['GET'])
+def expenses_annual_summary(year):
+    if not check_authentication():
+        return redirect("/login")
+        
+    budget = Budget.query.filter_by(year=year).first()
+    if not budget:
+        flash("Budget not found for the specified year.", "error")
+        return redirect("/expenses")
+        
+    transactions = Transaction.query.filter_by(budget_id=budget.id).order_by(Transaction.timestamp.asc()).all()
+    
+    # Calculate totals
+    total_budget = budget.total_fund
+    remaining_budget = budget.remaining_fund
+    total_spent = total_budget - remaining_budget
+    
+    return render_template(
+        'generate_annual_reimbursement.html', 
+        budget=budget, 
+        transactions=transactions, 
+        total_budget=total_budget, 
+        total_spent=total_spent, 
+        remaining_budget=remaining_budget,
+        username=session["username"],
+        date_generated=datetime.datetime.now()
+    )

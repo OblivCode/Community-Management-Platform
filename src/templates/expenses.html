@@ -5,43 +5,18 @@ content %}
         <h2 class="h3 mb-0">Expense Management</h2>
     </div>
     <div class="col-md-4">
-        <!-- Budget currency setter -->
-        {% if budget.id %}
-        <form
-            action="/budget/set_currency"
-            method="POST"
-            class="d-flex align-items-center gap-2"
-        >
-            <input type="hidden" name="budget_id" value="{{ budget.id }}" />
-            <label class="form-label mb-0 text-muted small text-nowrap"
-                >Budget stored in:</label
-            >
-            <select
-                class="form-select form-select-sm"
-                name="budget_currency"
-                onchange="this.form.submit()"
-                style="max-width: 140px"
-            >
-                {% for code, symbol in currency_symbols.items() %}
-                <option
-                    value="{{ code }}"
-                    {% if code == budget_currency %}selected{% endif %}
-                >
-                    {{ code }} ({{ symbol }})
-                </option>
-                {% endfor %}
-            </select>
-        </form>
-        {% endif %}
     </div>
     <div class="col-md-4 text-end">
+        <a href="/expenses/{{ budget.year }}/summary" class="btn btn-outline-secondary me-2" title="Generate Annual Reimbursement">
+            <i class="bi bi-printer"></i> Generate Annual Reimbursement
+        </a>
         <button
             class="btn btn-primary"
             type="button"
             data-bs-toggle="modal"
             data-bs-target="#addTransModal"
         >
-            <i class="bi bi-plus-lg"></i> Add Transaction
+            <i class="bi bi-plus-lg"></i> New Expense
         </button>
     </div>
 </div>
@@ -135,8 +110,8 @@ content %}
                             {% endif %}
                         </td>
                         <td>
-                            {% if t.author and t.author.username %} {{
-                            t.author.username }} {% else %} Unknown {% endif %}
+                            {% if t.user and t.user.username %} {{
+                            t.user.username }} {% else %} Unknown {% endif %}
                         </td>
                         <td>
                             {% if t.document_id %}
@@ -157,15 +132,23 @@ content %}
                                 action="/expenses/delete/{{ t.id }}"
                                 method="POST"
                                 class="d-inline"
-                                onsubmit="return confirm('Are you sure? This will refund {{ currency_symbols.get(t.currency) }}{{ t.cost }} {{ t.currency }} to the budget.');"
+                                onsubmit="if(!confirm(`Are you sure? This will refund {{ currency_symbols.get(t.currency, '') }}{{ t.cost }} {{ t.currency }} to the budget.`)) return false;"
                             >
                                 <button
                                     type="submit"
                                     class="btn btn-sm btn-outline-danger"
+                                    title="Delete Transaction"
                                 >
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
+                            <a
+                                href="/expenses/{{ t.id }}/reimbursement"
+                                class="btn btn-sm btn-outline-secondary d-inline"
+                                title="Generate Reimbursement Form"
+                            >
+                                <i class="bi bi-printer"></i>
+                            </a>
                         </td>
                     </tr>
                     {% else %}
@@ -222,7 +205,7 @@ content %}
                             <select class="form-select" name="category">
                                 <option value="Equipment">Equipment</option>
                                 <option value="Travel">Travel</option>
-                                <option value="Fees">League Fees</option>
+                                <option value="Fees">Fees</option>
                                 <option value="Misc">Misc</option>
                             </select>
                         </div>
@@ -263,20 +246,6 @@ content %}
                         </div>
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label"
-                            >Link Type
-                            <span class="text-muted">(optional)</span></label
-                        >
-                        <select class="form-select" name="link_type">
-                            <option value="">-- None --</option>
-                            <option value="event">Event</option>
-                            <option value="asset">Asset</option>
-                        </select>
-                        <div class="form-text">
-                            Use this to link the expense to an event or an
-                            asset.
-                        </div>
                     </div>
 
                     <div class="row">

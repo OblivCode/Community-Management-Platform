@@ -73,7 +73,7 @@ def events_update():
         flash("Missing info for event update.", "error")
         return redirect("/events")
         
-    event = Event.query.get(event_id)
+    event = db.session.get(Event, event_id)
     if not event:
         flash("Event not found.", "error")
         return redirect("/events")
@@ -102,7 +102,7 @@ def events_delete():
     if not event_id:
         return redirect("/events")
         
-    event = Event.query.get(event_id)
+    event = db.session.get(Event, event_id)
     if event:
         db.session.delete(event)
         db.session.commit()

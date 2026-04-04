@@ -24,6 +24,7 @@
             <th scope="col">Status</th>
             <th scope="col">Count</th>
             <th scope="col">Image</th>
+            <th scope="col">Links</th>
             <th scope="col" class="text-end">Actions</th>
         </tr>
     </thead>
@@ -33,12 +34,12 @@
             <td>{{ asset.name }}</td>
             <td>{{ asset.location }}</td>
             <td>
-                {% if asset.status == 'Damaged' %}
-                <span class="text-danger">{{asset.status}}</span>
-                {% elif asset.status == 'Lost' %}
-                <span class="text-danger">{{asset.status}}</span>
+                {% if asset.status.value == 'Damaged' %}
+                <span class="text-danger">{{asset.status.value}}</span>
+                {% elif asset.status.value == 'Lost' %}
+                <span class="text-danger">{{asset.status.value}}</span>
                 {% else %}
-                <span class="text-success">{{asset.status}}</span>
+                <span class="text-success">{{asset.status.value}}</span>
                 {% endif %}
             </td>
             <td>
@@ -55,6 +56,13 @@
                 {% else %}
                 <span class="text-muted small">None</span>
                 {% endif %}
+            </td>
+            <td>
+                <a href="/expenses" class="text-decoration-none">
+                    <span class="badge {{ 'bg-success' if asset.transactions|length > 0 else 'bg-secondary' }}">
+                        {{ asset.transactions|length }} Linked Transactions
+                    </span>
+                </a>
             </td>
             <!-- buttons -->
             <td class="text-end">

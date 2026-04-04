@@ -71,7 +71,7 @@ def setup_database(app):
                 db.session.add_all([event1, event2])
                 
                 # Document
-                doc1 = Document(note='Invoice for Match Balls', filename='balls_invoice.pdf', timestamp=datetime.datetime.now(), uploaded_by=jay.id)
+                doc1 = Document(note='Invoice for Match Balls', filename='Invoice for Match Balls.pdf', timestamp=datetime.datetime.now(), uploaded_by=jay.id)
                 db.session.add(doc1)
                 db.session.flush() # flush to get IDs for linking
                 
