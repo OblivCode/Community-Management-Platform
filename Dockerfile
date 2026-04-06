@@ -24,9 +24,10 @@ WORKDIR /app
 # Disable development dependencies
 ENV UV_NO_DEV=1
 
-# Sync the project into a new environment, asserting the lockfile is up to date
-WORKDIR /app
-# 4. Network
+# 4. Install dependencies
+RUN uv sync --frozen --no-dev
+
+# 5. Network
 EXPOSE 5000
 
 # 5. Run the application.
