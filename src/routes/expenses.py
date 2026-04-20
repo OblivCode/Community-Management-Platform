@@ -1,5 +1,5 @@
 import datetime
-from flask import Blueprint, render_template, redirect, request, session, flash
+from flask import Blueprint, json, render_template, redirect, request, session, flash
 
 from ..auth import check_authentication
 from ..models import Budget, Document, Transaction, User, Event, Asset, db
@@ -97,8 +97,65 @@ def expenses_post():
     asset_id = request.form.get("asset_id") or None
     receipt_file = request.files.get("receipt_file")
 
-    # If a document ID is provided, use it first
-    if document_id:
+    # Handle "NEW:" prefixed IDs - these come from the linking modal when user selects "Create New"
+    # Format is "NEW:{json_data}"
+
+    # Handle new event creation
+    if event_id and str(event_id).startswith("NEW:"):
+        try:
+            event_data = json.loads(event_id[4:])  # Remove "NEW:" prefix and parse JSON
+            new_event = Event(
+                title=event_data.get("title", "Untitled Event"),
+                description=event_data.get("description", ""),
+                date=datetime.datetime.strptime(event_data.get("date", ""), "%Y-%m-%dT%H:%M") if event_data.get("date") else datetime.datetime.now(),
+            )
+            db.session.add(new_event)
+            db.session.flush()
+            event_id = new_event.id
+            flash(f"Created and linked new event: {new_event.title}", "success")
+        except Exception as e:
+            flash(f"Error creating event: {str(e)}", "error")
+            event_id = None
+
+    # Handle new asset creation
+    if asset_id and str(asset_id).startswith("NEW:"):
+        try:
+            asset_data = json.loads(asset_id[4:])
+            from ..models import AssetStatus
+            new_asset = Asset(
+                name=asset_data.get("name", "Unnamed Asset"),
+                location=asset_data.get("location", "Storage"),
+                status=AssetStatus(asset_data.get("status", "Fine")),
+                count=int(asset_data.get("count", 1)),
+            )
+            db.session.add(new_asset)
+            db.session.flush()
+            asset_id = new_asset.id
+            flash(f"Created and linked new asset: {new_asset.name}", "success")
+        except Exception as e:
+            flash(f"Error creating asset: {str(e)}", "error")
+            asset_id = None
+
+    # Handle new document creation
+    if document_id and str(document_id).startswith("NEW:"):
+        try:
+            doc_data = json.loads(document_id[4:])
+            new_doc = Document(
+                note=doc_data.get("note", "Receipt"),
+                filename=doc_data.get("filename", ""),
+                timestamp=datetime.datetime.now(),
+                uploaded_by=user.id,
+            )
+            db.session.add(new_doc)
+            db.session.flush()
+            document_id = new_doc.id
+            flash(f"Created and linked new document: {new_doc.note[:30]}...", "success")
+        except Exception as e:
+            flash(f"Error creating document: {str(e)}", "error")
+            document_id = None
+
+    # If a document ID is provided (not "NEW:"), validate it exists
+    elif document_id:
         doc = Document.query.get(document_id)
         if not doc:
             flash("Document ID not found.", "error")
@@ -121,11 +178,7 @@ def expenses_post():
             flash("Invalid file type for receipt. Allowed: images and PDF.", "warning")
             document_id = None
 
-    # If the user picked a link type, only keep that matching link
-    if request.form.get("link_type") == "event":
-        asset_id = None
-    elif request.form.get("link_type") == "asset":
-        event_id = None
+
 
     # Convert cost to budget's own currency for deduction
     budget = Budget.query.get(budget_id)
