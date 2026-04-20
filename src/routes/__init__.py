@@ -6,6 +6,7 @@ from .assets import assets_bp
 from .expenses import expenses_bp
 from .documents import documents_bp
 from .events import events_bp
+from .links import links_bp
 
 __all__ = [
     'auth_bp',
@@ -15,4 +16,5 @@ __all__ = [
     'expenses_bp',
     'documents_bp',
     'events_bp',
+    'links_bp',
 ]

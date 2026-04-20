@@ -1,0 +1,66 @@
+{% if not links %}
+<div class="text-center text-muted py-4">No linked items found.</div>
+{% else %}
+<div class="vstack gap-3">
+    {% for link in links %}
+    <div
+        class="card {% if link.type == 'document' %}border-secondary-subtle{% else %}border-light{% endif %} shadow-sm"
+    >
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                    <div class="fw-semibold">
+                        {% if link.type == 'document' %}
+                        <i
+                            class="bi bi-file-earmark-text text-success me-1"
+                        ></i>
+                        {% elif link.type == 'transaction' %}
+                        <i class="bi bi-cash-stack text-danger me-1"></i>
+                        {% elif link.type == 'asset' %}
+                        <i class="bi bi-box-seam text-info me-1"></i>
+                        {% elif link.type == 'event' %}
+                        <i class="bi bi-calendar-event text-primary me-1"></i>
+                        {% endif %} {{ link.label }}
+                    </div>
+                    {% if link.note %}
+                    <div class="text-muted small mt-1">{{ link.note }}</div>
+                    {% endif %}
+                    <div class="mt-2 small">
+                        {% if link.amount %}
+                        <span
+                            class="badge bg-danger-subtle text-danger border border-danger-subtle me-1"
+                            >{{ link.amount }}</span
+                        >
+                        {% endif %} {% if link.status %}
+                        <span
+                            class="badge bg-secondary-subtle text-secondary border border-secondary-subtle me-1"
+                            >{{ link.status }}</span
+                        >
+                        {% endif %} {% if link.timestamp %}
+                        <span class="text-muted"
+                            ><i class="bi bi-clock me-1"></i>{{ link.timestamp
+                            }}</span
+                        >
+                        {% endif %}
+                    </div>
+                    {% if link.filename %}
+                    <div class="mt-2 small text-muted">
+                        <i class="bi bi-file-earmark me-1"></i>{{ link.filename
+                        }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% if link.url %}
+                <a
+                    class="btn btn-sm btn-outline-primary flex-shrink-0"
+                    href="{{ link.url }}"
+                >
+                    Open <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}

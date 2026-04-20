@@ -16,7 +16,8 @@
             href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css"
         />
         <style>
-            :root, [data-bs-theme="light"] {
+            :root,
+            [data-bs-theme="light"] {
                 --sidebar-bg: #0d6efd; /* Bootstrap blue */
                 --sidebar-hover: rgba(255, 255, 255, 0.2);
                 --sidebar-active: rgba(255, 255, 255, 0.3);
@@ -63,7 +64,7 @@
                 color: var(--text-main);
                 border-color: #3e444a;
             }
-            
+
             [data-bs-theme="dark"] .bg-white {
                 background-color: var(--card-bg) !important;
                 color: var(--text-main);
@@ -72,12 +73,12 @@
                 background-color: #2b3035 !important;
                 color: var(--text-main);
             }
-            
+
             [data-bs-theme="dark"] .bg-light .text-dark,
             [data-bs-theme="dark"] .bg-white .text-dark {
                 color: var(--text-main) !important;
             }
-            
+
             [data-bs-theme="dark"] .form-control,
             [data-bs-theme="dark"] .form-select {
                 background-color: #2b3035;
@@ -100,12 +101,17 @@
             /* Print-specific styles to hide unnecessary UI elements and format the page */
             @media print {
                 /* Hide base template elements like sidebar and top navigation if present */
-                .sidebar, nav, .navbar {
+                .sidebar,
+                nav,
+                .navbar {
                     display: none !important;
                 }
-                
+
                 /* Ensure the main content area takes full width and resets padding */
-                .container-fluid, .row, .col-md-9, .col-lg-10 {
+                .container-fluid,
+                .row,
+                .col-md-9,
+                .col-lg-10 {
                     width: 100% !important;
                     max-width: 100% !important;
                     padding: 0 !important;
@@ -123,7 +129,7 @@
                     background-color: white !important;
                     color: black !important;
                 }
-                
+
                 .card {
                     border: none !important;
                     box-shadow: none !important;
@@ -134,7 +140,7 @@
                     max-height: 400px !important;
                     page-break-inside: avoid;
                 }
-                
+
                 /* Force background colors on badges/alerts if necessary */
                 * {
                     -webkit-print-color-adjust: exact !important;
@@ -267,8 +273,15 @@
 
                     <!-- Exchange Rate Credits -->
                     <div class="mt-4 pb-4">
-                        <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener noreferrer" class="text-white-50 small text-decoration-none" style="font-size: 0.8rem;">
-                            <i class="bi bi-info-circle"></i> Rates by Exchange Rate API
+                        <a
+                            href="https://www.exchangerate-api.com"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            class="text-white-50 small text-decoration-none"
+                            style="font-size: 0.8rem"
+                        >
+                            <i class="bi bi-info-circle"></i> Rates by Exchange
+                            Rate API
                         </a>
                     </div>
                 </div>
@@ -314,10 +327,81 @@
                     </div>
                     {% endfor %} {% endif %} {% endwith %} {% block content %}{%
                     endblock %}
-
-
                 </div>
             </div>
         </div>
+
+        <!-- Universal Links Modal -->
+        <div
+            class="modal fade"
+            id="universal_links_modal"
+            tabindex="-1"
+            aria-hidden="true"
+        >
+            <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <div>
+                            <h5
+                                class="modal-title mb-0"
+                                id="universal_links_title"
+                            >
+                                Linked Items
+                            </h5>
+                            <div
+                                class="text-muted small"
+                                id="universal_links_meta"
+                            ></div>
+                        </div>
+                        <button
+                            type="button"
+                            class="btn-close"
+                            data-bs-dismiss="modal"
+                            aria-label="Close"
+                        ></button>
+                    </div>
+                    <div class="modal-body" id="universal_links_body"></div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function view_links(source_type, source_id, title, meta) {
+                const title_el = document.getElementById(
+                    "universal_links_title",
+                );
+                const meta_el = document.getElementById("universal_links_meta");
+                const body_el = document.getElementById("universal_links_body");
+
+                if (title_el) title_el.textContent = title || "Linked Items";
+                if (meta_el) meta_el.textContent = meta || "";
+
+                if (body_el) {
+                    body_el.innerHTML = "Loading...";
+                }
+
+                const modal = new bootstrap.Modal(
+                    document.getElementById("universal_links_modal"),
+                );
+                modal.show();
+
+                fetch(`/api/links/${source_type}/${source_id}`)
+                    .then((response) => {
+                        if (!response.ok)
+                            throw new Error("Failed to load links");
+                        return response.text();
+                    })
+                    .then((html) => {
+                        if (body_el) {
+                            body_el.innerHTML = html;
+                        }
+                    })
+                    .catch((error) => {
+                        if (body_el) {
+                            body_el.innerHTML = "Error loading links.";
+                        }
+                    });
+            }
+        </script>
     </body>
 </html>

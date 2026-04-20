@@ -3,7 +3,7 @@ from flask import Flask, jsonify, render_template, request, session, redirect, f
 from werkzeug.security import generate_password_hash
 from .auth import validate_user, check_authentication
 from .models import ActionLog, AssetStatus, Document, Setting, Transaction, db, User, Budget, Asset
-from .routes import auth_bp, dashboard_bp, settings_bp, assets_bp, expenses_bp, documents_bp, events_bp
+from .routes import auth_bp, dashboard_bp, settings_bp, assets_bp, expenses_bp, documents_bp, events_bp, links_bp
 from .utils import CURRENCY_SYMBOLS, UPLOAD_FOLDER, DATABASE_FOLDER, get_currency_code, get_currency_symbol, budget_health_threshold
 from .services import get_exchange_rate
 
@@ -116,6 +116,7 @@ def create_app(config=None):
     app.register_blueprint(expenses_bp)
     app.register_blueprint(documents_bp)
     app.register_blueprint(events_bp)
+    app.register_blueprint(links_bp)
 
     # Register index page to login
     @app.route('/')

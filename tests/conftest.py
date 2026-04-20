@@ -3,6 +3,8 @@ from werkzeug.security import generate_password_hash
 from src.app import db, create_app
 from src.models import User
 
+# Fixture to create a user quickly in tests
+# Helps avoid repeating user creation code across tests
 @pytest.fixture
 def create_user():
     def _create_user(username, password, role):
@@ -12,11 +14,10 @@ def create_user():
         return user
     return _create_user
 
+# Creates a fresh app instance for each test
+# Uses a temporary in-memory database so tests dont affect real data
 @pytest.fixture
 def test_app():
-    """Create and configure app instance for each test."""
-
-    print("Setting up app instance test.")
     app = create_app({
         "TESTING": True,
         "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:", 
@@ -25,10 +26,6 @@ def test_app():
 
     with app.app_context():
         db.create_all()
-
         yield app
-
-        print("Tests done. Cleaning up.")
         db.session.remove()
         db.drop_all()
-
