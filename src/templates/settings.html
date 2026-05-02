@@ -40,4 +40,18 @@
         </form>
     </div>
 </div>
+
+<div class="card mt-4 border-danger">
+    <div class="card-body">
+        <h5 class="card-title text-danger">Admin Options (Prototype)</h5>
+        <p class="text-muted">Resetting the application will delete all current data, clear uploaded files, and reseed the database with the initial demo data.</p>
+        <form action="/settings/admin/reset" method="post" onsubmit="return confirm('Are you absolutely sure you want to reset everything?');">
+            <div class="mb-3">
+                <label for="confirm_reset" class="form-label text-danger">Type <strong>RESET</strong> to confirm:</label>
+                <input type="text" class="form-control" id="confirm_reset" name="confirm_reset" required>
+            </div>
+            <button type="submit" class="btn btn-danger">Reset & Reseed Application</button>
+        </form>
+    </div>
+</div>
 {% endblock %}
