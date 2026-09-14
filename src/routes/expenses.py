@@ -1,19 +1,20 @@
 import datetime
-from flask import Blueprint, json, render_template, redirect, request, session, flash
+
+from flask import Blueprint, flash, json, redirect, render_template, request, session
 
 from ..auth import check_authentication
-from ..models import Budget, Document, Transaction, User, Event, Asset, db
-from ..utils import CURRENCY_SYMBOLS, get_currency_code
+from ..models import Asset, Budget, Document, Event, Transaction, User, db
 from ..services import get_exchange_rate
+from ..utils import CURRENCY_SYMBOLS, get_currency_code
 
-expenses_bp = Blueprint('expenses', __name__)
+expenses_bp = Blueprint("expenses", __name__)
 
 
-@expenses_bp.route('/expenses', methods=['GET'])
+@expenses_bp.route("/expenses", methods=["GET"])
 def expenses_get(year=None):
     if not check_authentication():
         return redirect("/login")
-    
+
     year = session["budget_year"] or str(datetime.datetime.now().year)
 
     # Get budget for the year
@@ -22,15 +23,21 @@ def expenses_get(year=None):
     count_no_receipt = 0
     if budget:
         transactions = Transaction.query.filter_by(budget_id=budget.id).all()
-        count_no_receipt = Transaction.query.filter_by(budget_id=budget.id, document_id=None).count()
+        count_no_receipt = Transaction.query.filter_by(
+            budget_id=budget.id, document_id=None
+        ).count()
     else:
         budget = Budget(year=year, total_fund=0.0, remaining_fund=0.0)
         flash(f"No budget found for year {year}. Showing empty budget.", "info")
 
     # Determine UI currency and convert budget totals for display
-    ui_code = session.get('ui_currency', get_currency_code())
-    budget_currency = budget.currency if hasattr(budget, 'currency') and budget.currency else get_currency_code()
-    ui_symbol = CURRENCY_SYMBOLS.get(ui_code, '£')
+    ui_code = session.get("ui_currency", get_currency_code())
+    budget_currency = (
+        budget.currency
+        if hasattr(budget, "currency") and budget.currency
+        else get_currency_code()
+    )
+    ui_symbol = CURRENCY_SYMBOLS.get(ui_code, "£")
     ui_rate = get_exchange_rate(budget_currency, ui_code)
     ui_total_fund = round(budget.total_fund * ui_rate, 2)
     ui_remaining_fund = round(budget.remaining_fund * ui_rate, 2)
@@ -43,13 +50,13 @@ def expenses_get(year=None):
 
     # Get all documents for the link receipt modal
     documents = Document.query.all()
-    
+
     # Get all events and assets for the dropdowns
     events = Event.query.order_by(Event.date.desc()).all()
     assets = Asset.query.all()
 
     return render_template(
-        'expenses.html',
+        "expenses.html",
         events=events,
         assets=assets,
         transactions=transactions,
@@ -66,7 +73,7 @@ def expenses_get(year=None):
     )
 
 
-@expenses_bp.route('/expenses', methods=['POST'])
+@expenses_bp.route("/expenses", methods=["POST"])
 def expenses_post():
     if not check_authentication():
         return redirect("/login")
@@ -82,11 +89,20 @@ def expenses_post():
     user = User.query.filter_by(username=session["username"]).first()
 
     # Check for missing or invalid budget_id (including string "None")
-    if not user or not budget_id_str or budget_id_str == "None":
-        flash("Missing required fields. Please ensure a budget exists for the selected year.", "error")
-        return redirect("/expenses")
+    if not user:
+        flash("User not found.", "error")
+        return redirect("/login")
 
-    budget_id = int(budget_id_str)
+    if not budget_id_str or budget_id_str == "None":
+        year = session.get("budget_year") or str(datetime.datetime.now().year)
+        budget = Budget.query.filter_by(year=year).first()
+        if not budget:
+            budget = Budget(year=year, total_fund=0.0, remaining_fund=0.0)
+            db.session.add(budget)
+            db.session.commit()
+        budget_id = budget.id
+    else:
+        budget_id = int(budget_id_str)
 
     currency_code = request.form.get("currency_code") or get_currency_code()
     if currency_code not in CURRENCY_SYMBOLS:
@@ -107,7 +123,11 @@ def expenses_post():
             new_event = Event(
                 title=event_data.get("title", "Untitled Event"),
                 description=event_data.get("description", ""),
-                date=datetime.datetime.strptime(event_data.get("date", ""), "%Y-%m-%dT%H:%M") if event_data.get("date") else datetime.datetime.now(),
+                date=datetime.datetime.strptime(
+                    event_data.get("date", ""), "%Y-%m-%dT%H:%M"
+                )
+                if event_data.get("date")
+                else datetime.datetime.now(),
             )
             db.session.add(new_event)
             db.session.flush()
@@ -122,6 +142,7 @@ def expenses_post():
         try:
             asset_data = json.loads(asset_id[4:])
             from ..models import AssetStatus
+
             new_asset = Asset(
                 name=asset_data.get("name", "Unnamed Asset"),
                 location=asset_data.get("location", "Storage"),
@@ -178,11 +199,11 @@ def expenses_post():
             flash("Invalid file type for receipt. Allowed: images and PDF.", "warning")
             document_id = None
 
-
-
     # Convert cost to budget's own currency for deduction
     budget = Budget.query.get(budget_id)
-    budget_currency = (budget.currency if budget and budget.currency else None) or get_currency_code()
+    budget_currency = (
+        budget.currency if budget and budget.currency else None
+    ) or get_currency_code()
     rate = get_exchange_rate(currency_code, budget_currency)
     cost_in_default = round(cost * rate, 2)
 
@@ -209,17 +230,17 @@ def expenses_post():
     return redirect("/expenses?prompt_asset=1")
 
 
-@expenses_bp.route('/expenses/<year>', methods=['GET'])
+@expenses_bp.route("/expenses/<year>", methods=["GET"])
 def expenses_post_year(year):
     if not check_authentication():
         return redirect("/login")
-    
+
     # Update session budget year
     session["budget_year"] = year
     return redirect("/expenses")
 
 
-@expenses_bp.route('/expenses/delete/<int:id>', methods=['POST'])
+@expenses_bp.route("/expenses/delete/<int:id>", methods=["POST"])
 def expenses_delete(id):
     if not check_authentication():
         return redirect("/login")
@@ -241,7 +262,7 @@ def expenses_delete(id):
     return redirect("/expenses")
 
 
-@expenses_bp.route('/expenses/link/<int:transaction_id>', methods=['POST'])
+@expenses_bp.route("/expenses/link/<int:transaction_id>", methods=["POST"])
 def expenses_link_document(transaction_id):
     if not check_authentication():
         return redirect("/login")
@@ -291,7 +312,7 @@ def expenses_link_document(transaction_id):
     return redirect("/expenses")
 
 
-@expenses_bp.route('/budget/set_currency', methods=['POST'])
+@expenses_bp.route("/budget/set_currency", methods=["POST"])
 def budget_set_currency():
     """Update the stored currency of a budget (affects how fund amounts are interpreted)."""
     if not check_authentication():
@@ -309,43 +330,52 @@ def budget_set_currency():
     return redirect("/expenses")
 
 
-@expenses_bp.route('/expenses/<int:id>/reimbursement', methods=['GET'])
+@expenses_bp.route("/expenses/<int:id>/reimbursement", methods=["GET"])
 def expenses_reimbursement(id):
     if not check_authentication():
         return redirect("/login")
-        
+
     transaction = db.session.get(Transaction, id)
     if not transaction:
         flash("Transaction not found.", "error")
         return redirect("/expenses")
-        
-    # Validation logic updated: we now allow transactions to load but handle them in the template
-    return render_template('generate_reimbursement.html', transaction=transaction, username=session["username"])
 
-@expenses_bp.route('/expenses/<year>/summary', methods=['GET'])
+    # Validation logic updated: we now allow transactions to load but handle them in the template
+    return render_template(
+        "generate_reimbursement.html",
+        transaction=transaction,
+        username=session["username"],
+    )
+
+
+@expenses_bp.route("/expenses/<year>/summary", methods=["GET"])
 def expenses_annual_summary(year):
     if not check_authentication():
         return redirect("/login")
-        
+
     budget = Budget.query.filter_by(year=year).first()
     if not budget:
         flash("Budget not found for the specified year.", "error")
         return redirect("/expenses")
-        
-    transactions = Transaction.query.filter_by(budget_id=budget.id).order_by(Transaction.timestamp.asc()).all()
-    
+
+    transactions = (
+        Transaction.query.filter_by(budget_id=budget.id)
+        .order_by(Transaction.timestamp.asc())
+        .all()
+    )
+
     # Calculate totals
     total_budget = budget.total_fund
     remaining_budget = budget.remaining_fund
     total_spent = total_budget - remaining_budget
-    
+
     return render_template(
-        'generate_annual_reimbursement.html', 
-        budget=budget, 
-        transactions=transactions, 
-        total_budget=total_budget, 
-        total_spent=total_spent, 
+        "generate_annual_reimbursement.html",
+        budget=budget,
+        transactions=transactions,
+        total_budget=total_budget,
+        total_spent=total_spent,
         remaining_budget=remaining_budget,
         username=session["username"],
-        date_generated=datetime.datetime.now()
+        date_generated=datetime.datetime.now(),
     )

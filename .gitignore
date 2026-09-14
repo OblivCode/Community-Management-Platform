@@ -44,3 +44,16 @@ override.tf.json
 # Crash log files
 crash.log
 crash.*.log
+# Keys and Credentials
+*.pem
+*.key
+
+# Large build artifacts
+fyp_app.tar
+pytest_cov.txt
+
+# Koyeb CLI
+koyeb-cli/
+
+# Cloudflare tunnel
+cloudflared*

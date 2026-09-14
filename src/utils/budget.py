@@ -1,5 +1,6 @@
 import datetime
-from flask import session, flash, redirect
+
+from flask import flash, redirect, session
 
 
 def get_budget_year() -> str:
@@ -12,6 +13,3 @@ def validate_budget_exists(Budget) -> tuple[bool, str]:
     year = get_budget_year()
     exists = Budget.query.filter_by(year=year).first() is not None
     return exists, year
-
-
-
